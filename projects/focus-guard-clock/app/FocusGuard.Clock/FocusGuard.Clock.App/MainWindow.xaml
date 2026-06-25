@@ -13,7 +13,160 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <Grid>
+    <Grid Padding="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="24" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
+        <StackPanel Spacing="8">
+            <TextBlock
+                Text="Focus Guard Clock"
+                FontSize="28"
+                FontWeight="SemiBold" />
+            <TextBlock
+                Text="Cycle calculator prototype"
+                FontSize="14"
+                Opacity="0.72" />
+        </StackPanel>
+
+        <Grid Grid.Row="2" ColumnSpacing="24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="360" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Spacing="16">
+                <NumberBox
+                    x:Name="TotalDurationBox"
+                    Header="Total duration (minutes)"
+                    Minimum="1"
+                    SmallChange="5"
+                    LargeChange="25"
+                    SpinButtonPlacementMode="Inline" />
+
+                <NumberBox
+                    x:Name="FocusPeriodBox"
+                    Header="Focus period (minutes)"
+                    Minimum="0"
+                    SmallChange="5"
+                    LargeChange="25"
+                    SpinButtonPlacementMode="Inline" />
+
+                <NumberBox
+                    x:Name="BreakPeriodBox"
+                    Header="Break period (minutes)"
+                    Minimum="0"
+                    SmallChange="5"
+                    LargeChange="10"
+                    SpinButtonPlacementMode="Inline" />
+
+                <CheckBox
+                    x:Name="SkipBreaksCheckBox"
+                    Content="Skip breaks" />
+
+                <Button
+                    Content="Calculate"
+                    Click="CalculateButton_Click" />
+
+                <TextBlock
+                    x:Name="ErrorTextBlock"
+                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                    TextWrapping="WrapWholeWords"
+                    Visibility="Collapsed" />
+            </StackPanel>
+
+            <Grid Grid.Column="1" RowSpacing="16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border
+                        Padding="16"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Focus" Opacity="0.72" />
+                            <TextBlock
+                                x:Name="FocusCountTextBlock"
+                                FontSize="24"
+                                FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        Grid.Column="1"
+                        Padding="16"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Breaks" Opacity="0.72" />
+                            <TextBlock
+                                x:Name="BreakCountTextBlock"
+                                FontSize="24"
+                                FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        Grid.Column="2"
+                        Padding="16"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Used" Opacity="0.72" />
+                            <TextBlock
+                                x:Name="UsedDurationTextBlock"
+                                FontSize="24"
+                                FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        Grid.Column="3"
+                        Padding="16"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Unused" Opacity="0.72" />
+                            <TextBlock
+                                x:Name="UnusedDurationTextBlock"
+                                FontSize="24"
+                                FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <ListView
+                    x:Name="StagesListView"
+                    Grid.Row="1">
+                    <ListView.Header>
+                        <TextBlock
+                            Text="Stages"
+                            FontSize="18"
+                            FontWeight="SemiBold"
+                            Margin="0,0,0,8" />
+                    </ListView.Header>
+                </ListView>
+            </Grid>
+        </Grid>
     </Grid>
 </Window>
