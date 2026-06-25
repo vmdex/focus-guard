@@ -19,6 +19,11 @@ public sealed class FocusCycleCalculator
     {
         Validate(request);
 
+        if (request.SkipBreaks)
+        {
+            return BuildContinuousFocusPlan(request);
+        }
+
         // First decide how many full focus periods fit into the user's time budget.
         // v0.1 does not create a shorter "partial" focus period from leftover time.
         var focusPeriodCount = CalculateFocusPeriodCount(request);
@@ -44,13 +49,31 @@ public sealed class FocusCycleCalculator
             stages);
     }
 
+    private static FocusCyclePlan BuildContinuousFocusPlan(FocusCycleRequest request)
+    {
+        // When breaks are off, total duration is the focus duration.
+        // Focus/break period settings do not split the session.
+        var stages = new List<CycleStage>
+        {
+            new(
+                CycleStageKind.Focus,
+                request.TotalDurationMinutes,
+                FocusPeriodNumber: 1,
+                TotalFocusPeriods: 1)
+        };
+
+        return new FocusCyclePlan(
+            request.TotalDurationMinutes,
+            UsedDurationMinutes: request.TotalDurationMinutes,
+            UnusedDurationMinutes: 0,
+            request.FocusPeriodMinutes,
+            request.BreakPeriodMinutes,
+            request.SkipBreaks,
+            stages);
+    }
+
     private static int CalculateFocusPeriodCount(FocusCycleRequest request)
     {
-        if (request.SkipBreaks)
-        {
-            return request.TotalDurationMinutes / request.FocusPeriodMinutes;
-        }
-
         // With breaks enabled, one full pair is:
         // focus + break.
         //
@@ -69,11 +92,6 @@ public sealed class FocusCycleCalculator
 
     private static int CalculateBreakCount(FocusCycleRequest request, int focusPeriodCount)
     {
-        if (request.SkipBreaks)
-        {
-            return 0;
-        }
-
         return focusPeriodCount - 1;
     }
 
@@ -114,6 +132,11 @@ public sealed class FocusCycleCalculator
             throw new ArgumentOutOfRangeException(
                 nameof(request),
                 "Total duration must be greater than zero.");
+        }
+
+        if (request.SkipBreaks)
+        {
+            return;
         }
 
         if (request.FocusPeriodMinutes <= 0)

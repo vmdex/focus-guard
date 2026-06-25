@@ -221,6 +221,7 @@ Daily progress показує, скільки focus time користувач у
 - після останнього focus period цикл завершується;
 - застосунок переходить у completed state без додаткового start break sound;
 - якщо користувач хоче зробити break після завершеного циклу, він може запустити її вручну з completed state.
+- якщо skip breaks увімкнено, застосунок створює один суцільний focus stage на весь total duration і не використовує focus period / break period для поділу.
 
 Переходи:
 
@@ -228,8 +229,7 @@ Daily progress показує, скільки focus time користувач у
 - Focus finished -> Break зі start break sound, якщо breaks увімкнені і попереду є наступний focus period;
 - Break finished -> наступний Focus зі start session sound, якщо попереду є ще focus periods;
 - Focus finished після останнього period -> Completed без start break sound;
-- Focus finished, якщо breaks skipped -> наступний Focus зі start session sound, якщо попереду є ще focus periods;
-- Focus finished, якщо breaks skipped і це останній period -> Completed без додаткового звуку.
+- Focus finished, якщо breaks skipped -> Completed з break reminder / start break sound, якщо увімкнено.
 
 Розрахунок кількості focus periods:
 
@@ -239,6 +239,7 @@ Daily progress показує, скільки focus time користувач у
 - кількість breaks: periods - 1, якщо breaks увімкнені;
 - мінімальна кількість focus periods - 1;
 - якщо після розрахунку лишається короткий залишок, v0.1 не створює неповний focus period.
+- якщо skip breaks увімкнено, кількість focus periods завжди 1, а duration цього focus stage дорівнює total duration.
 
 ### Поведінка звуків і сповіщень
 

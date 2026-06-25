@@ -47,18 +47,36 @@ public sealed class FocusCycleCalculatorTests
     }
 
     [TestMethod]
-    public void Calculate_WithSkipBreaks_CreatesOnlyFocusPeriods()
+    public void Calculate_WithSkipBreaks_CreatesOneContinuousFocusStage()
     {
         var plan = _calculator.Calculate(new FocusCycleRequest(
-            TotalDurationMinutes: 200,
+            TotalDurationMinutes: 20,
             FocusPeriodMinutes: 25,
             BreakPeriodMinutes: 10,
             SkipBreaks: true));
 
-        Assert.AreEqual(8, plan.FocusPeriodCount);
+        Assert.AreEqual(1, plan.FocusPeriodCount);
         Assert.AreEqual(0, plan.BreakCount);
-        Assert.AreEqual(8, plan.Stages.Count);
-        Assert.IsTrue(plan.Stages.All(stage => stage.IsFocus));
+        Assert.AreEqual(1, plan.Stages.Count);
+        Assert.AreEqual(20, plan.UsedDurationMinutes);
+        Assert.AreEqual(0, plan.UnusedDurationMinutes);
+        Assert.IsTrue(plan.Stages[0].IsFocus);
+        Assert.AreEqual(20, plan.Stages[0].DurationMinutes);
+    }
+
+    [TestMethod]
+    public void Calculate_WithSkipBreaks_IgnoresFocusAndBreakPeriodSettings()
+    {
+        var plan = _calculator.Calculate(new FocusCycleRequest(
+            TotalDurationMinutes: 20,
+            FocusPeriodMinutes: 0,
+            BreakPeriodMinutes: 0,
+            SkipBreaks: true));
+
+        Assert.AreEqual(1, plan.FocusPeriodCount);
+        Assert.AreEqual(0, plan.BreakCount);
+        Assert.AreEqual(20, plan.UsedDurationMinutes);
+        Assert.AreEqual(20, plan.Stages[0].DurationMinutes);
     }
 
     [TestMethod]

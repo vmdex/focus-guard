@@ -52,23 +52,26 @@ Focus, Break, Focus, Break, Focus, Break, Focus, Break, Focus, Break, Focus
 6 * 25 + 5 * 10 = 200 minutes
 ```
 
-## Skip breaks
+## Breaks off
 
-Якщо `SkipBreaks = true`, breaks не створюються.
+Якщо `SkipBreaks = true`, це означає, що breaks вимкнені.
 
-Формула:
+У цьому режимі:
 
-```text
-focusPeriods = floor(totalDuration / focusPeriod)
-breaks = 0
-```
+- цикл не ділиться на focus periods;
+- `focusPeriod` і `breakPeriod` не впливають на розрахунок;
+- створюється один суцільний focus stage на весь `totalDuration`;
+- після завершення цього focus stage застосунок може нагадати, що час зробити break.
 
 Приклад:
 
 ```text
-total duration = 200 minutes
-focus period = 25 minutes
-focusPeriods = 8
+total duration = 20 minutes
+focus period = ignored
+break period = ignored
+focusPeriods = 1
+breaks = 0
+used duration = 20 minutes
 ```
 
 ## Неповний focus period
@@ -99,4 +102,3 @@ var plan = calculator.Calculate(new FocusCycleRequest(
 Console.WriteLine(plan.FocusPeriodCount); // 6
 Console.WriteLine(plan.BreakCount);       // 5
 ```
-

@@ -8,10 +8,11 @@
 
 ## Базові припущення v0.1
 
-- Користувач вводить загальну тривалість усього циклу, включно з breaks.
-- Focus periods і breaks розраховуються автоматично.
+- Якщо breaks увімкнені, користувач вводить загальну тривалість усього циклу, включно з breaks.
+- Якщо breaks увімкнені, focus periods і breaks розраховуються автоматично.
 - Breaks ставляться між focus periods.
-- Після останнього focus period цикл завершується без автоматичної break.
+- Якщо breaks вимкнені, цикл не ділиться на periods і складається з одного focus stage на весь total duration.
+- Після останнього focus stage цикл завершується без автоматичного запуску break.
 - Ручний старт не відтворює звук.
 - Звуки відтворюються тільки при автоматичному переході в новий режим.
 - Tasks, профіль користувача і синхронізація не входять у v0.1.
@@ -58,14 +59,15 @@ periods = floor((totalDuration + breakPeriod) / (focusPeriod + breakPeriod))
 breaks = periods - 1
 ```
 
-Якщо користувач увімкнув `Skip breaks`:
+Якщо користувач увімкнув `Skip breaks`, тобто breaks вимкнені:
 
 ```text
-periods = floor(totalDuration / focusPeriod)
+periods = 1
 breaks = 0
+focus duration = totalDuration
 ```
 
-У v0.1 неповний focus period не створюється.
+У v0.1 неповний focus period не створюється, коли breaks увімкнені.
 
 ### 3. Користувач натискає Start focus session
 
@@ -177,23 +179,24 @@ breaks = 0
 - залишок знову `25 min`;
 - стан лишається `Paused`.
 
-## Skip breaks
+## Skip breaks / breaks off
 
 Якщо `Skip breaks` увімкнено до старту:
 
 - breaks не створюються;
-- цикл складається тільки з focus periods;
-- `Start break sound` не використовується;
-- між focus periods автоматично запускається наступний focus period;
-- при автоматичному старті наступного focus period може відтворюватися `Start session sound`;
-- після останнього focus period застосунок переходить у `Completed` без додаткового звуку.
+- цикл складається з одного focus stage на весь total duration;
+- focus period setting не ділить цей час на менші periods;
+- break period setting не впливає на розрахунок;
+- після завершення focus stage застосунок переходить у `Completed`;
+- в кінці можна показати нагадування або звук про те, що час зробити break.
 
 Приклад:
 
 - total duration: `200 minutes`;
 - focus period: `25 minutes`;
 - skip breaks: on;
-- periods: `8`;
+- periods: `1`;
+- focus duration: `200 minutes`;
 - breaks: `0`.
 
 ## Stop
@@ -267,5 +270,4 @@ Streak оновлюється на основі daily goal:
 - Focus -> Break -> `Start break sound`;
 - Break -> Focus -> `Start session sound`;
 - Last Focus -> Completed -> без звуку;
-- Skip breaks: Focus -> next Focus -> `Start session sound`;
-- Skip breaks: Last Focus -> Completed -> без звуку.
+- Skip breaks: Focus -> Completed -> break reminder / `Start break sound`, якщо увімкнено.
