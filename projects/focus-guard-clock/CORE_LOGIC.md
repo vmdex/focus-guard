@@ -186,6 +186,20 @@ unused = 5
 - `CycleStageKind` - тип етапу: `Focus` або `Break`.
 - `FocusCycleCalculator` - сервіс, який будує `FocusCyclePlan`.
 
+## Default settings
+
+Початкові значення для першого запуску застосунку:
+
+```text
+total duration = 200 minutes
+focus period = 25 minutes
+break period = 10 minutes
+skip breaks = false
+```
+
+Core-калькулятор не зберігає ці значення самостійно. Він тільки приймає `FocusCycleRequest`.
+Зберігання останніх значень користувача має бути окремим application service у WinUI app.
+
 ## Приклад використання
 
 ```csharp

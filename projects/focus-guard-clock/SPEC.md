@@ -116,6 +116,15 @@ Focus Guard Clock - це простий застосунок для focus sessio
 - кнопку start focus session;
 - блок daily progress.
 
+Значення за замовчуванням:
+
+- total duration: 200 minutes;
+- focus period: 25 minutes;
+- break period: 10 minutes;
+- skip breaks: off.
+
+Якщо користувач змінює ці значення, застосунок має запам'ятати їх локально і підставити при наступному запуску.
+
 Поки не потрібно показувати:
 
 - профіль користувача;
@@ -295,6 +304,7 @@ Daily progress показує, скільки focus time користувач у
 
 Потрібні мінімальні налаштування:
 
+- default total duration;
 - default focus duration;
 - default break duration;
 - daily goal duration;
@@ -306,6 +316,14 @@ Daily progress показує, скільки focus time користувач у
 - start break sound on/off;
 - start break melody;
 - keep window always on top on/off.
+
+Початкові defaults:
+
+- default total duration: 200 minutes;
+- default focus duration: 25 minutes;
+- default break duration: 10 minutes.
+
+Застосунок має зберігати останні значення користувача локально, щоб при наступному запуску не потрібно було налаштовувати їх заново.
 
 ## Не входить у v0.1
 

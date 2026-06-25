@@ -33,10 +33,18 @@
 
 За замовчуванням:
 
+- total duration: `200 minutes`;
 - focus period береться з settings;
 - break period береться з settings;
 - daily goal береться з settings;
 - skip breaks вимкнено.
+
+Перші значення settings:
+
+- focus period: `25 minutes`;
+- break period: `10 minutes`.
+
+Якщо користувач змінює total duration, focus period, break period або skip breaks, застосунок зберігає останні значення локально і використовує їх при наступному запуску.
 
 ### 2. Користувач задає загальну тривалість
 
