@@ -26,8 +26,7 @@
                 FontSize="28"
                 FontWeight="SemiBold" />
             <TextBlock
-                x:Name="ModeSubtitleTextBlock"
-                Text="Focus timer"
+                Text="Developer timer prototype"
                 FontSize="14"
                 Opacity="0.72" />
         </StackPanel>
@@ -64,7 +63,6 @@
                     SpinButtonPlacementMode="Inline" />
 
                 <StackPanel
-                    x:Name="AdvanceControlsPanel"
                     Orientation="Horizontal"
                     Spacing="8">
                     <NumberBox
@@ -93,12 +91,6 @@
                     Checked="UseSecondsCheckBox_Changed"
                     Unchecked="UseSecondsCheckBox_Changed" />
 
-                <CheckBox
-                    x:Name="DeveloperModeCheckBox"
-                    Content="Developer mode"
-                    Checked="DeveloperModeCheckBox_Changed"
-                    Unchecked="DeveloperModeCheckBox_Changed" />
-
                 <Button
                     Content="Calculate"
                     Click="CalculateButton_Click" />
@@ -111,138 +103,6 @@
             </StackPanel>
 
             <Grid
-                x:Name="UserModeView"
-                Grid.Column="1"
-                RowSpacing="20">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <Border
-                    Padding="24"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8">
-                    <Grid RowSpacing="20">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <StackPanel Spacing="6">
-                            <TextBlock
-                                x:Name="UserStageTextBlock"
-                                FontSize="20"
-                                FontWeight="SemiBold" />
-                            <TextBlock
-                                x:Name="UserStatusTextBlock"
-                                Opacity="0.72" />
-                        </StackPanel>
-
-                        <TextBlock
-                            x:Name="UserRemainingTimeTextBlock"
-                            Grid.Row="1"
-                            HorizontalAlignment="Center"
-                            FontSize="72"
-                            FontWeight="SemiLight" />
-
-                        <StackPanel
-                            Grid.Row="2"
-                            HorizontalAlignment="Center"
-                            Orientation="Horizontal"
-                            Spacing="8">
-                            <Button
-                                x:Name="UserStartButton"
-                                Content="Start"
-                                Click="StartButton_Click" />
-                            <Button
-                                x:Name="UserPauseButton"
-                                Content="Pause"
-                                Click="PauseButton_Click" />
-                            <Button
-                                x:Name="UserResumeButton"
-                                Content="Resume"
-                                Click="ResumeButton_Click" />
-                            <Button
-                                x:Name="UserResetButton"
-                                Content="Reset"
-                                Click="ResetButton_Click" />
-                            <Button
-                                x:Name="UserStopButton"
-                                Content="Stop"
-                                Click="StopButton_Click" />
-                        </StackPanel>
-                    </Grid>
-                </Border>
-
-                <Grid Grid.Row="1" ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <Border
-                        Padding="16"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="Focus periods" Opacity="0.72" />
-                            <TextBlock
-                                x:Name="UserFocusCountTextBlock"
-                                FontSize="24"
-                                FontWeight="SemiBold" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border
-                        Grid.Column="1"
-                        Padding="16"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="Breaks" Opacity="0.72" />
-                            <TextBlock
-                                x:Name="UserBreakCountTextBlock"
-                                FontSize="24"
-                                FontWeight="SemiBold" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border
-                        Grid.Column="2"
-                        Padding="16"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="Focus time" Opacity="0.72" />
-                            <TextBlock
-                                x:Name="UserFocusElapsedTextBlock"
-                                FontSize="24"
-                                FontWeight="SemiBold" />
-                        </StackPanel>
-                    </Border>
-                </Grid>
-
-                <TextBlock
-                    x:Name="UserMessageTextBlock"
-                    Grid.Row="2"
-                    VerticalAlignment="Top"
-                    Opacity="0.72" />
-            </Grid>
-
-            <Grid
-                x:Name="DeveloperModeView"
                 Grid.Column="1"
                 RowSpacing="16">
                 <Grid.RowDefinitions>
