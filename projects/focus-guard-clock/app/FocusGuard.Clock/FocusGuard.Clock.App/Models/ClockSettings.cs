@@ -5,12 +5,14 @@ public sealed record ClockSettings(
     int FocusPeriod,
     int BreakPeriod,
     bool SkipBreaks,
-    bool UseSeconds)
+    bool UseSeconds,
+    bool IsDeveloperModeEnabled)
 {
     public static ClockSettings Defaults => new(
         TotalDuration: 200,
         FocusPeriod: 25,
         BreakPeriod: 10,
         SkipBreaks: false,
-        UseSeconds: false);
+        UseSeconds: false,
+        IsDeveloperModeEnabled: false);
 }

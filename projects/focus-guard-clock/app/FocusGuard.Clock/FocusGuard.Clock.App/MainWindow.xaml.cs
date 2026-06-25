@@ -23,6 +23,8 @@ namespace FocusGuard.Clock.App
         private readonly DispatcherTimer _timer = new();
 
         private FocusTimerRunner? _timerRunner;
+        private ClockSettings _currentSettings = ClockSettings.Defaults;
+        private bool _isApplyingSettings;
         private DateTimeOffset _lastTickAt;
 
         public MainWindow()
@@ -42,17 +44,45 @@ namespace FocusGuard.Clock.App
             CalculateAndRenderPlan();
         }
 
+        private void DeveloperModeCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isApplyingSettings)
+            {
+                return;
+            }
+
+            _currentSettings = ReadSettingsFromInputs();
+            _settingsService.Save(_currentSettings);
+            ApplyModeVisibility();
+            RenderTimer(_timerRunner?.Snapshot);
+        }
+
+        private void UseSecondsCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isApplyingSettings)
+            {
+                return;
+            }
+
+            _currentSettings = ReadSettingsFromInputs();
+            _settingsService.Save(_currentSettings);
+            ApplyModeVisibility();
+        }
+
         private void CalculateAndRenderPlan()
         {
             try
             {
                 var settings = ReadSettingsFromInputs();
+                _currentSettings = settings;
                 _settingsService.Save(settings);
+                ApplyModeVisibility();
+                var useSeconds = ShouldUseSeconds(settings);
 
                 var request = new FocusCycleRequest(
-                    ToDuration(settings.TotalDuration, settings.UseSeconds),
-                    ToDuration(settings.FocusPeriod, settings.UseSeconds),
-                    ToDuration(settings.BreakPeriod, settings.UseSeconds),
+                    ToDuration(settings.TotalDuration, useSeconds),
+                    ToDuration(settings.FocusPeriod, useSeconds),
+                    ToDuration(settings.BreakPeriod, useSeconds),
                     settings.SkipBreaks);
 
                 var plan = _calculator.Calculate(request);
@@ -60,14 +90,17 @@ namespace FocusGuard.Clock.App
                 _timerRunner = new FocusTimerRunner(plan);
 
                 ErrorTextBlock.Visibility = Visibility.Collapsed;
-                FocusCountTextBlock.Text = plan.FocusPeriodCount.ToString();
-                BreakCountTextBlock.Text = plan.BreakCount.ToString();
-                UsedDurationTextBlock.Text = FormatDuration(plan.UsedDuration, settings.UseSeconds);
-                UnusedDurationTextBlock.Text = FormatDuration(plan.UnusedDuration, settings.UseSeconds);
-                StagesListView.ItemsSource = plan.Stages
-                    .Select(stage => FormatStage(stage, settings.UseSeconds))
+                UserFocusCountTextBlock.Text = plan.FocusPeriodCount.ToString();
+                UserBreakCountTextBlock.Text = plan.BreakCount.ToString();
+                DeveloperFocusCountTextBlock.Text = plan.FocusPeriodCount.ToString();
+                DeveloperBreakCountTextBlock.Text = plan.BreakCount.ToString();
+                DeveloperUsedDurationTextBlock.Text = FormatDuration(plan.UsedDuration, useSeconds);
+                DeveloperUnusedDurationTextBlock.Text = FormatDuration(plan.UnusedDuration, useSeconds);
+                DeveloperStagesListView.ItemsSource = plan.Stages
+                    .Select(stage => FormatStage(stage, useSeconds))
                     .ToList();
-                TimerEventTextBlock.Text = string.Empty;
+                UserMessageTextBlock.Text = string.Empty;
+                DeveloperTimerEventTextBlock.Text = string.Empty;
                 RenderTimer(_timerRunner.Snapshot);
             }
             catch (Exception exception)
@@ -76,7 +109,7 @@ namespace FocusGuard.Clock.App
                 _timerRunner = null;
                 ErrorTextBlock.Text = exception.Message;
                 ErrorTextBlock.Visibility = Visibility.Visible;
-                StagesListView.ItemsSource = null;
+                DeveloperStagesListView.ItemsSource = null;
                 RenderTimer(null);
             }
         }
@@ -119,7 +152,8 @@ namespace FocusGuard.Clock.App
         private void ResetButton_Click(object sender, RoutedEventArgs e)
         {
             _timer.Stop();
-            TimerEventTextBlock.Text = string.Empty;
+            UserMessageTextBlock.Text = string.Empty;
+            DeveloperTimerEventTextBlock.Text = string.Empty;
             RenderTimer(_timerRunner?.Reset());
         }
 
@@ -132,7 +166,9 @@ namespace FocusGuard.Clock.App
 
             _timer.Stop();
             var result = _timerRunner.Stop();
-            TimerEventTextBlock.Text = $"Stopped. Focus progress: {FormatTime(result.FocusElapsed)}";
+            var message = $"Stopped. Focus progress: {FormatTime(result.FocusElapsed)}";
+            UserMessageTextBlock.Text = message;
+            DeveloperTimerEventTextBlock.Text = message;
             RenderTimer(_timerRunner.Snapshot);
         }
 
@@ -160,11 +196,16 @@ namespace FocusGuard.Clock.App
 
         private void ApplySettings(ClockSettings settings)
         {
+            _isApplyingSettings = true;
+            _currentSettings = settings;
             TotalDurationBox.Value = settings.TotalDuration;
             FocusPeriodBox.Value = settings.FocusPeriod;
             BreakPeriodBox.Value = settings.BreakPeriod;
             SkipBreaksCheckBox.IsChecked = settings.SkipBreaks;
             UseSecondsCheckBox.IsChecked = settings.UseSeconds;
+            DeveloperModeCheckBox.IsChecked = settings.IsDeveloperModeEnabled;
+            _isApplyingSettings = false;
+            ApplyModeVisibility();
         }
 
         private ClockSettings ReadSettingsFromInputs()
@@ -174,7 +215,8 @@ namespace FocusGuard.Clock.App
                 FocusPeriod: ReadWholeNumber(FocusPeriodBox),
                 BreakPeriod: ReadWholeNumber(BreakPeriodBox),
                 SkipBreaks: SkipBreaksCheckBox.IsChecked == true,
-                UseSeconds: UseSecondsCheckBox.IsChecked == true);
+                UseSeconds: UseSecondsCheckBox.IsChecked == true,
+                IsDeveloperModeEnabled: DeveloperModeCheckBox.IsChecked == true);
         }
 
         private static int ReadWholeNumber(NumberBox numberBox)
@@ -200,31 +242,55 @@ namespace FocusGuard.Clock.App
         {
             if (snapshot is null)
             {
-                TimerStatusTextBlock.Text = "Invalid settings";
-                CurrentStageTextBlock.Text = "-";
-                RemainingTimeTextBlock.Text = "--:--";
-                FocusElapsedTextBlock.Text = "--:--";
-                TotalElapsedTextBlock.Text = "--:--";
+                UserStatusTextBlock.Text = "Invalid settings";
+                UserStageTextBlock.Text = "-";
+                UserRemainingTimeTextBlock.Text = "--:--";
+                UserFocusElapsedTextBlock.Text = "--:--";
+                DeveloperTimerStatusTextBlock.Text = "Invalid settings";
+                DeveloperCurrentStageTextBlock.Text = "-";
+                DeveloperRemainingTimeTextBlock.Text = "--:--";
+                DeveloperFocusElapsedTextBlock.Text = "--:--";
+                DeveloperTotalElapsedTextBlock.Text = "--:--";
                 SetTimerButtonState(FocusTimerStatus.Idle, hasTimer: false);
                 return;
             }
 
-            TimerStatusTextBlock.Text = snapshot.Status.ToString();
-            CurrentStageTextBlock.Text = FormatCurrentStage(snapshot.CurrentStage);
-            RemainingTimeTextBlock.Text = FormatTime(snapshot.RemainingInCurrentStage);
-            FocusElapsedTextBlock.Text = FormatTime(snapshot.FocusElapsed);
-            TotalElapsedTextBlock.Text = FormatTime(snapshot.TotalElapsed);
+            var stageLabel = FormatCurrentStage(snapshot.CurrentStage);
+            var remainingTime = FormatTime(snapshot.RemainingInCurrentStage);
+            var focusElapsed = FormatTime(snapshot.FocusElapsed);
+            var status = FormatUserStatus(snapshot);
+
+            UserStatusTextBlock.Text = status;
+            UserStageTextBlock.Text = stageLabel;
+            UserRemainingTimeTextBlock.Text = remainingTime;
+            UserFocusElapsedTextBlock.Text = focusElapsed;
+            DeveloperTimerStatusTextBlock.Text = snapshot.Status.ToString();
+            DeveloperCurrentStageTextBlock.Text = stageLabel;
+            DeveloperRemainingTimeTextBlock.Text = remainingTime;
+            DeveloperFocusElapsedTextBlock.Text = focusElapsed;
+            DeveloperTotalElapsedTextBlock.Text = FormatTime(snapshot.TotalElapsed);
 
             SetTimerButtonState(snapshot.Status, hasTimer: true);
         }
 
         private void SetTimerButtonState(FocusTimerStatus status, bool hasTimer)
         {
-            StartButton.IsEnabled = hasTimer && status is FocusTimerStatus.Idle or FocusTimerStatus.Completed;
-            PauseButton.IsEnabled = hasTimer && status is FocusTimerStatus.Running;
-            ResumeButton.IsEnabled = hasTimer && status is FocusTimerStatus.Paused;
-            ResetButton.IsEnabled = hasTimer && status is not FocusTimerStatus.Idle;
-            StopButton.IsEnabled = hasTimer && status is FocusTimerStatus.Running or FocusTimerStatus.Paused;
+            var canStart = hasTimer && status is FocusTimerStatus.Idle or FocusTimerStatus.Completed;
+            var canPause = hasTimer && status is FocusTimerStatus.Running;
+            var canResume = hasTimer && status is FocusTimerStatus.Paused;
+            var canReset = hasTimer && status is not FocusTimerStatus.Idle;
+            var canStop = hasTimer && status is FocusTimerStatus.Running or FocusTimerStatus.Paused;
+
+            UserStartButton.IsEnabled = canStart;
+            UserPauseButton.IsEnabled = canPause;
+            UserResumeButton.IsEnabled = canResume;
+            UserResetButton.IsEnabled = canReset;
+            UserStopButton.IsEnabled = canStop;
+            DeveloperStartButton.IsEnabled = canStart;
+            DeveloperPauseButton.IsEnabled = canPause;
+            DeveloperResumeButton.IsEnabled = canResume;
+            DeveloperResetButton.IsEnabled = canReset;
+            DeveloperStopButton.IsEnabled = canStop;
         }
 
         private void RenderEvents(IReadOnlyList<FocusTimerEvent> events)
@@ -234,13 +300,16 @@ namespace FocusGuard.Clock.App
                 return;
             }
 
-            TimerEventTextBlock.Text = events[^1].Kind switch
+            var message = events[^1].Kind switch
             {
                 FocusTimerEventKind.BreakStarted => "Break started",
                 FocusTimerEventKind.FocusStarted => "Focus started",
                 FocusTimerEventKind.TimerCompleted => "Timer completed",
                 _ => string.Empty
             };
+
+            UserMessageTextBlock.Text = message;
+            DeveloperTimerEventTextBlock.Text = message;
         }
 
         private static string FormatCurrentStage(CycleStage? stage)
@@ -282,6 +351,47 @@ namespace FocusGuard.Clock.App
             }
 
             return $"{(int)duration.TotalMinutes} min";
+        }
+
+        private void ApplyModeVisibility()
+        {
+            var isDeveloperMode = DeveloperModeCheckBox.IsChecked == true;
+
+            UserModeView.Visibility = isDeveloperMode
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+            DeveloperModeView.Visibility = isDeveloperMode
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            UseSecondsCheckBox.Visibility = isDeveloperMode
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            ModeSubtitleTextBlock.Text = isDeveloperMode
+                ? "Developer mode"
+                : "Focus timer";
+            var unit = ShouldUseSeconds(ReadSettingsFromInputs())
+                ? "seconds"
+                : "minutes";
+            TotalDurationBox.Header = $"Total duration ({unit})";
+            FocusPeriodBox.Header = $"Focus period ({unit})";
+            BreakPeriodBox.Header = $"Break period ({unit})";
+        }
+
+        private static string FormatUserStatus(FocusTimerSnapshot snapshot)
+        {
+            return snapshot.Status switch
+            {
+                FocusTimerStatus.Idle => "Ready to focus",
+                FocusTimerStatus.Running => "Session is running",
+                FocusTimerStatus.Paused => "Paused",
+                FocusTimerStatus.Completed => "Completed",
+                _ => snapshot.Status.ToString()
+            };
+        }
+
+        private static bool ShouldUseSeconds(ClockSettings settings)
+        {
+            return settings.IsDeveloperModeEnabled && settings.UseSeconds;
         }
     }
 }

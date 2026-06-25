@@ -26,7 +26,8 @@
                 FontSize="28"
                 FontWeight="SemiBold" />
             <TextBlock
-                Text="Cycle calculator prototype"
+                x:Name="ModeSubtitleTextBlock"
+                Text="Focus timer"
                 FontSize="14"
                 Opacity="0.72" />
         </StackPanel>
@@ -68,7 +69,15 @@
 
                 <CheckBox
                     x:Name="UseSecondsCheckBox"
-                    Content="Use seconds" />
+                    Content="Use seconds"
+                    Checked="UseSecondsCheckBox_Changed"
+                    Unchecked="UseSecondsCheckBox_Changed" />
+
+                <CheckBox
+                    x:Name="DeveloperModeCheckBox"
+                    Content="Developer mode"
+                    Checked="DeveloperModeCheckBox_Changed"
+                    Unchecked="DeveloperModeCheckBox_Changed" />
 
                 <Button
                     Content="Calculate"
@@ -81,7 +90,141 @@
                     Visibility="Collapsed" />
             </StackPanel>
 
-            <Grid Grid.Column="1" RowSpacing="16">
+            <Grid
+                x:Name="UserModeView"
+                Grid.Column="1"
+                RowSpacing="20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border
+                    Padding="24"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <Grid RowSpacing="20">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock
+                                x:Name="UserStageTextBlock"
+                                FontSize="20"
+                                FontWeight="SemiBold" />
+                            <TextBlock
+                                x:Name="UserStatusTextBlock"
+                                Opacity="0.72" />
+                        </StackPanel>
+
+                        <TextBlock
+                            x:Name="UserRemainingTimeTextBlock"
+                            Grid.Row="1"
+                            HorizontalAlignment="Center"
+                            FontSize="72"
+                            FontWeight="SemiLight" />
+
+                        <StackPanel
+                            Grid.Row="2"
+                            HorizontalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <Button
+                                x:Name="UserStartButton"
+                                Content="Start"
+                                Click="StartButton_Click" />
+                            <Button
+                                x:Name="UserPauseButton"
+                                Content="Pause"
+                                Click="PauseButton_Click" />
+                            <Button
+                                x:Name="UserResumeButton"
+                                Content="Resume"
+                                Click="ResumeButton_Click" />
+                            <Button
+                                x:Name="UserResetButton"
+                                Content="Reset"
+                                Click="ResetButton_Click" />
+                            <Button
+                                x:Name="UserStopButton"
+                                Content="Stop"
+                                Click="StopButton_Click" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="1" ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border
+                        Padding="16"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Focus periods" Opacity="0.72" />
+                            <TextBlock
+                                x:Name="UserFocusCountTextBlock"
+                                FontSize="24"
+                                FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        Grid.Column="1"
+                        Padding="16"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Breaks" Opacity="0.72" />
+                            <TextBlock
+                                x:Name="UserBreakCountTextBlock"
+                                FontSize="24"
+                                FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        Grid.Column="2"
+                        Padding="16"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Focus time" Opacity="0.72" />
+                            <TextBlock
+                                x:Name="UserFocusElapsedTextBlock"
+                                FontSize="24"
+                                FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <TextBlock
+                    x:Name="UserMessageTextBlock"
+                    Grid.Row="2"
+                    VerticalAlignment="Top"
+                    Opacity="0.72" />
+            </Grid>
+
+            <Grid
+                x:Name="DeveloperModeView"
+                Grid.Column="1"
+                RowSpacing="16">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -105,7 +248,7 @@
                         <StackPanel Spacing="4">
                             <TextBlock Text="Focus" Opacity="0.72" />
                             <TextBlock
-                                x:Name="FocusCountTextBlock"
+                                x:Name="DeveloperFocusCountTextBlock"
                                 FontSize="24"
                                 FontWeight="SemiBold" />
                         </StackPanel>
@@ -121,7 +264,7 @@
                         <StackPanel Spacing="4">
                             <TextBlock Text="Breaks" Opacity="0.72" />
                             <TextBlock
-                                x:Name="BreakCountTextBlock"
+                                x:Name="DeveloperBreakCountTextBlock"
                                 FontSize="24"
                                 FontWeight="SemiBold" />
                         </StackPanel>
@@ -137,7 +280,7 @@
                         <StackPanel Spacing="4">
                             <TextBlock Text="Used" Opacity="0.72" />
                             <TextBlock
-                                x:Name="UsedDurationTextBlock"
+                                x:Name="DeveloperUsedDurationTextBlock"
                                 FontSize="24"
                                 FontWeight="SemiBold" />
                         </StackPanel>
@@ -153,7 +296,7 @@
                         <StackPanel Spacing="4">
                             <TextBlock Text="Unused" Opacity="0.72" />
                             <TextBlock
-                                x:Name="UnusedDurationTextBlock"
+                                x:Name="DeveloperUnusedDurationTextBlock"
                                 FontSize="24"
                                 FontWeight="SemiBold" />
                         </StackPanel>
@@ -186,12 +329,12 @@
                                     FontSize="18"
                                     FontWeight="SemiBold" />
                                 <TextBlock
-                                    x:Name="TimerStatusTextBlock"
+                                    x:Name="DeveloperTimerStatusTextBlock"
                                     Opacity="0.72" />
                             </StackPanel>
 
                             <TextBlock
-                                x:Name="RemainingTimeTextBlock"
+                                x:Name="DeveloperRemainingTimeTextBlock"
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
                                 FontSize="32"
@@ -210,7 +353,7 @@
                             <StackPanel Spacing="4">
                                 <TextBlock Text="Stage" Opacity="0.72" />
                                 <TextBlock
-                                    x:Name="CurrentStageTextBlock"
+                                    x:Name="DeveloperCurrentStageTextBlock"
                                     FontWeight="SemiBold" />
                             </StackPanel>
 
@@ -219,7 +362,7 @@
                                 Spacing="4">
                                 <TextBlock Text="Focus elapsed" Opacity="0.72" />
                                 <TextBlock
-                                    x:Name="FocusElapsedTextBlock"
+                                    x:Name="DeveloperFocusElapsedTextBlock"
                                     FontWeight="SemiBold" />
                             </StackPanel>
 
@@ -228,7 +371,7 @@
                                 Spacing="4">
                                 <TextBlock Text="Total elapsed" Opacity="0.72" />
                                 <TextBlock
-                                    x:Name="TotalElapsedTextBlock"
+                                    x:Name="DeveloperTotalElapsedTextBlock"
                                     FontWeight="SemiBold" />
                             </StackPanel>
                         </Grid>
@@ -238,27 +381,27 @@
                             Orientation="Horizontal"
                             Spacing="8">
                             <Button
-                                x:Name="StartButton"
+                                x:Name="DeveloperStartButton"
                                 Content="Start"
                                 Click="StartButton_Click" />
                             <Button
-                                x:Name="PauseButton"
+                                x:Name="DeveloperPauseButton"
                                 Content="Pause"
                                 Click="PauseButton_Click" />
                             <Button
-                                x:Name="ResumeButton"
+                                x:Name="DeveloperResumeButton"
                                 Content="Resume"
                                 Click="ResumeButton_Click" />
                             <Button
-                                x:Name="ResetButton"
+                                x:Name="DeveloperResetButton"
                                 Content="Reset"
                                 Click="ResetButton_Click" />
                             <Button
-                                x:Name="StopButton"
+                                x:Name="DeveloperStopButton"
                                 Content="Stop"
                                 Click="StopButton_Click" />
                             <TextBlock
-                                x:Name="TimerEventTextBlock"
+                                x:Name="DeveloperTimerEventTextBlock"
                                 VerticalAlignment="Center"
                                 Opacity="0.72" />
                         </StackPanel>
@@ -266,7 +409,7 @@
                 </Border>
 
                 <ListView
-                    x:Name="StagesListView"
+                    x:Name="DeveloperStagesListView"
                     Grid.Row="2">
                     <ListView.Header>
                         <TextBlock
