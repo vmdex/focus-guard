@@ -24,6 +24,7 @@ namespace FocusGuard.Clock.App
 
         private FocusTimerRunner? _timerRunner;
         private ClockSettings _currentSettings = ClockSettings.Defaults;
+        private bool _isApplyingSettings;
         private DateTimeOffset _lastTickAt;
 
         public MainWindow()
@@ -37,9 +38,24 @@ namespace FocusGuard.Clock.App
             CalculateAndRenderPlan();
         }
 
-        private void CalculateButton_Click(object sender, RoutedEventArgs e)
+        private void FocusSessionNavButton_Click(object sender, RoutedEventArgs e)
         {
-            CalculateAndRenderPlan();
+            ShowFocusSessionPage();
+        }
+
+        private void SettingsNavButton_Click(object sender, RoutedEventArgs e)
+        {
+            ShowSettingsPage();
+        }
+
+        private void SettingsInput_Changed(object sender, RoutedEventArgs e)
+        {
+            SaveSettingsAndRecalculate();
+        }
+
+        private void SettingsNumberBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+        {
+            SaveSettingsAndRecalculate();
         }
 
         private void CalculateAndRenderPlan()
@@ -188,11 +204,13 @@ namespace FocusGuard.Clock.App
 
         private void ApplySettings(ClockSettings settings)
         {
+            _isApplyingSettings = true;
             _currentSettings = settings;
             TotalDurationBox.Value = settings.TotalDuration;
             FocusPeriodBox.Value = settings.FocusPeriod;
             BreakPeriodBox.Value = settings.BreakPeriod;
             SkipBreaksCheckBox.IsChecked = settings.SkipBreaks;
+            _isApplyingSettings = false;
         }
 
         private ClockSettings ReadSettingsFromInputs()
@@ -308,6 +326,28 @@ namespace FocusGuard.Clock.App
         private static string FormatDuration(TimeSpan duration)
         {
             return $"{(int)duration.TotalMinutes} min";
+        }
+
+        private void SaveSettingsAndRecalculate()
+        {
+            if (_isApplyingSettings)
+            {
+                return;
+            }
+
+            CalculateAndRenderPlan();
+        }
+
+        private void ShowFocusSessionPage()
+        {
+            FocusSessionPage.Visibility = Visibility.Visible;
+            SettingsPage.Visibility = Visibility.Collapsed;
+        }
+
+        private void ShowSettingsPage()
+        {
+            FocusSessionPage.Visibility = Visibility.Collapsed;
+            SettingsPage.Visibility = Visibility.Visible;
         }
     }
 }
