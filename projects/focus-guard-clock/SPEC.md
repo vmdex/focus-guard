@@ -127,6 +127,18 @@ Focus Guard Clock - це простий застосунок для focus sessio
 
 Daily progress показує, скільки focus time користувач уже завершив за поточний день.
 
+До daily progress додається:
+
+- повністю завершений focus period;
+- фактично пройдений focus time, якщо користувач натиснув stop під час focus period.
+
+Не додається:
+
+- break time;
+- paused time;
+- reset time до повторного запуску;
+- час після stop під час break.
+
 Потрібно показувати:
 
 - daily goal;
@@ -181,6 +193,53 @@ Daily progress показує, скільки focus time користувач у
 
 Автоматичний старт паузи має бути налаштуванням, а не єдиною можливою поведінкою.
 
+### Focus/break cycle
+
+Цикл складається з focus periods і breaks.
+
+Базова модель:
+
+- користувач задає загальну тривалість усього циклу, включно з breaks;
+- застосунок заповнює цей час focus periods і breaks;
+- breaks додаються між focus periods;
+- після останнього focus period додаткова break не додається, якщо вона не вміщується в загальну тривалість;
+- кількість focus periods показується користувачу до старту і під час сесії.
+
+Приклад:
+
+- total duration: 200 minutes;
+- focus period: 25 minutes;
+- break period: 10 minutes;
+- кількість focus periods: 6;
+- кількість breaks: 5;
+- формула прикладу: 6 * 25 minutes focus + 5 * 10 minutes break = 200 minutes.
+
+Правило для v0.1:
+
+- break ставиться після кожного focus period, крім випадку, коли користувач увімкнув skip breaks;
+- break ставиться тільки тоді, коли після неї ще є час на наступний focus period;
+- після останнього focus period цикл завершується;
+- застосунок переходить у completed state без додаткового start break sound;
+- якщо користувач хоче зробити break після завершеного циклу, він може запустити її вручну з completed state.
+
+Переходи:
+
+- manual start -> Focus без звуку;
+- Focus finished -> Break зі start break sound, якщо breaks увімкнені і попереду є наступний focus period;
+- Break finished -> наступний Focus зі start session sound, якщо попереду є ще focus periods;
+- Focus finished після останнього period -> Completed без start break sound;
+- Focus finished, якщо breaks skipped -> наступний Focus зі start session sound, якщо попереду є ще focus periods;
+- Focus finished, якщо breaks skipped і це останній period -> Completed без додаткового звуку.
+
+Розрахунок кількості focus periods:
+
+- total duration означає весь цикл разом із breaks;
+- потрібно знайти найбільшу кількість повних focus periods, які вміщуються разом із breaks між ними;
+- формула для кількості periods: floor((total duration + break period) / (focus period + break period));
+- кількість breaks: periods - 1, якщо breaks увімкнені;
+- мінімальна кількість focus periods - 1;
+- якщо після розрахунку лишається короткий залишок, v0.1 не створює неповний focus period.
+
 ### Поведінка звуків і сповіщень
 
 У v0.1 звуки і сповіщення мають бути прив'язані до автоматичного переходу в новий режим.
@@ -188,9 +247,9 @@ Daily progress показує, скільки focus time користувач у
 Ключова відмінність від Windows Clock:
 
 - коли користувач натискає start вручну, звук не відтворюється;
-- коли focus session завершується і починається break, може відтворюватися start break sound;
+- коли focus period завершується і починається break, може відтворюватися start break sound;
 - коли break завершується і починається наступна focus session, може відтворюватися start session sound;
-- якщо це остання focus session у циклі, останнім звуком має бути start break sound;
+- коли останній focus period завершує весь цикл, додатковий start break sound не відтворюється;
 - застосунок не має створювати зайвий другий сигнал для тієї самої події.
 
 Це означає, що ми мислимо не як "end of session sound" і "end of break sound", а як:
@@ -216,6 +275,14 @@ Daily progress показує, скільки focus time користувач у
 - статус: completed, stopped, finished early;
 
 У v0.1 достатньо локального зберігання.
+
+Якщо користувач натискає stop:
+
+- confirmation не показується;
+- поточний period записується як stopped;
+- фактично пройдений focus time додається до daily progress, якщо це був focus period;
+- застосунок переходить у Idle;
+- звук не відтворюється.
 
 ## Налаштування v0.1
 
