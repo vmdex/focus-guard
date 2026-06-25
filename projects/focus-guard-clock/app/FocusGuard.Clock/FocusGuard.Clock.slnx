@@ -10,4 +10,6 @@
     <Platform Solution="*|x86" Project="x86" />
     <Deploy />
   </Project>
+  <Project Path="FocusGuard.Clock.Core/FocusGuard.Clock.Core.csproj" />
+  <Project Path="FocusGuard.Clock.Tests/FocusGuard.Clock.Tests.csproj" />
 </Solution>
