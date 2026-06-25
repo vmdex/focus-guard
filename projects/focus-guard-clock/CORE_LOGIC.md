@@ -11,6 +11,28 @@ Core-шар містить бізнес-логіку, яка не залежит
 - пізніше перевикористати логіку в іншому клієнті або backend;
 - легше підтримувати правила звуків, прогресу і переходів.
 
+## Developer mode boundary
+
+`Developer mode` не є частиною core-логіки.
+
+Core-шар не має знати, чи застосунок відкритий у звичайному UI або в developer UI.
+Він має отримувати ті самі вхідні дані, будувати той самий `FocusCyclePlan`
+і виконувати ті самі timer transitions.
+
+Дозволено:
+
+- у WinUI app показувати більше debug/test information;
+- у WinUI app показувати тестові controls;
+- у WinUI app зберігати setting `IsDeveloperModeEnabled`;
+- у WinUI app використовувати секунди як зручний input mode для швидкої перевірки.
+
+Не дозволено:
+
+- змінювати правила `FocusCycleCalculator` залежно від developer mode;
+- змінювати правила `FocusTimerRunner` залежно від developer mode;
+- створювати окремі business rules тільки для developer mode;
+- робити так, щоб production UI і developer UI рахували таймер по-різному.
+
 ## Focus cycle formula
 
 У v0.1 користувач задає total duration як весь доступний час циклу, включно з breaks.

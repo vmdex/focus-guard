@@ -42,6 +42,32 @@ Focus Guard Clock - це простий застосунок для focus sessio
 - Мінімум налаштувань, але важливі речі мають бути контрольовані.
 - Застосунок має бути корисним навіть без акаунта, backend або синхронізації.
 
+## Developer mode
+
+Focus Guard Clock може мати окремий `Developer mode`.
+
+Це режим інтерфейсу, а не окрема логіка таймера.
+
+Правило:
+
+- core logic однакова завжди;
+- `Developer mode` змінює тільки UI;
+- `Developer mode` показує більше внутрішньої інформації про стан застосунку;
+- `Developer mode` може додавати тестові controls для швидкої перевірки;
+- `Developer mode` не змінює правила cycle calculation;
+- `Developer mode` не змінює правила `Start`, `Pause`, `Resume`, `Reset`, `Stop`;
+- користувацький UI має лишатися мінімальним, чистим і красивим;
+- developer UI також має бути акуратним, але може показувати більше деталей.
+
+Приклади того, що може бути доступно в `Developer mode`:
+
+- режим введення тривалостей у секундах;
+- поточний raw timer status;
+- current stage index;
+- остання timer event;
+- focus elapsed і total elapsed;
+- кнопки для швидкого тестування, наприклад advance time або complete current stage.
+
 ## Основні стани
 
 ### Idle
