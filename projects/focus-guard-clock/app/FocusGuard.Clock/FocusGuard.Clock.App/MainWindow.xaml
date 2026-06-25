@@ -118,24 +118,9 @@
 
                 <Grid
                     Grid.Row="2"
-                    ColumnSpacing="24">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="360" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Spacing="16">
-                        <TextBlock
-                            x:Name="ErrorTextBlock"
-                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                            TextWrapping="WrapWholeWords"
-                            Visibility="Collapsed" />
-                    </StackPanel>
-
-                    <Grid
-                        Grid.Column="1"
-                        RowSpacing="16">
+                    RowSpacing="16">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -213,6 +198,13 @@
                                 </StackPanel>
                             </Border>
                         </Grid>
+
+                        <TextBlock
+                            x:Name="ErrorTextBlock"
+                            Grid.Row="3"
+                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                            TextWrapping="WrapWholeWords"
+                            Visibility="Collapsed" />
 
                         <Border
                             Grid.Row="1"
@@ -366,7 +358,7 @@
 
                         <ListView
                             x:Name="DeveloperStagesListView"
-                            Grid.Row="3">
+                            Grid.Row="4">
                             <ListView.Header>
                                 <TextBlock
                                     Text="Stages"
@@ -377,7 +369,6 @@
                         </ListView>
                     </Grid>
                 </Grid>
-            </Grid>
 
             <ScrollViewer
                 x:Name="SettingsPage"
