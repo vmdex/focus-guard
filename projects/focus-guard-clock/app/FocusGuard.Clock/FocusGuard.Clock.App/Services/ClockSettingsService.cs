@@ -12,7 +12,6 @@ public sealed class ClockSettingsService
     private const string LegacyFocusPeriodMinutesKey = "Clock.FocusPeriodMinutes";
     private const string LegacyBreakPeriodMinutesKey = "Clock.BreakPeriodMinutes";
     private const string SkipBreaksKey = "Clock.SkipBreaks";
-    private const string UseSecondsKey = "Clock.UseSeconds";
 
     private readonly ApplicationDataContainer _localSettings = ApplicationData.Current.LocalSettings;
 
@@ -24,8 +23,7 @@ public sealed class ClockSettingsService
             TotalDuration: ReadInt(TotalDurationKey, LegacyTotalDurationMinutesKey, defaults.TotalDuration),
             FocusPeriod: ReadInt(FocusPeriodKey, LegacyFocusPeriodMinutesKey, defaults.FocusPeriod),
             BreakPeriod: ReadInt(BreakPeriodKey, LegacyBreakPeriodMinutesKey, defaults.BreakPeriod),
-            SkipBreaks: ReadBool(SkipBreaksKey, defaults.SkipBreaks),
-            UseSeconds: ReadBool(UseSecondsKey, defaults.UseSeconds));
+            SkipBreaks: ReadBool(SkipBreaksKey, defaults.SkipBreaks));
     }
 
     public void Save(ClockSettings settings)
@@ -34,7 +32,6 @@ public sealed class ClockSettingsService
         _localSettings.Values[FocusPeriodKey] = settings.FocusPeriod;
         _localSettings.Values[BreakPeriodKey] = settings.BreakPeriod;
         _localSettings.Values[SkipBreaksKey] = settings.SkipBreaks;
-        _localSettings.Values[UseSecondsKey] = settings.UseSeconds;
     }
 
     private int ReadInt(string key, string legacyKey, int fallback)

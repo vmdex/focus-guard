@@ -42,13 +42,6 @@ namespace FocusGuard.Clock.App
             CalculateAndRenderPlan();
         }
 
-        private void UseSecondsCheckBox_Changed(object sender, RoutedEventArgs e)
-        {
-            _currentSettings = ReadSettingsFromInputs();
-            _settingsService.Save(_currentSettings);
-            ApplyTimeUnitLabels();
-        }
-
         private void CalculateAndRenderPlan()
         {
             try
@@ -56,12 +49,11 @@ namespace FocusGuard.Clock.App
                 var settings = ReadSettingsFromInputs();
                 _currentSettings = settings;
                 _settingsService.Save(settings);
-                ApplyTimeUnitLabels();
 
                 var request = new FocusCycleRequest(
-                    ToDuration(settings.TotalDuration, settings.UseSeconds),
-                    ToDuration(settings.FocusPeriod, settings.UseSeconds),
-                    ToDuration(settings.BreakPeriod, settings.UseSeconds),
+                    TimeSpan.FromMinutes(settings.TotalDuration),
+                    TimeSpan.FromMinutes(settings.FocusPeriod),
+                    TimeSpan.FromMinutes(settings.BreakPeriod),
                     settings.SkipBreaks);
 
                 var plan = _calculator.Calculate(request);
@@ -71,10 +63,10 @@ namespace FocusGuard.Clock.App
                 ErrorTextBlock.Visibility = Visibility.Collapsed;
                 DeveloperFocusCountTextBlock.Text = plan.FocusPeriodCount.ToString();
                 DeveloperBreakCountTextBlock.Text = plan.BreakCount.ToString();
-                DeveloperUsedDurationTextBlock.Text = FormatDuration(plan.UsedDuration, settings.UseSeconds);
-                DeveloperUnusedDurationTextBlock.Text = FormatDuration(plan.UnusedDuration, settings.UseSeconds);
+                DeveloperUsedDurationTextBlock.Text = FormatDuration(plan.UsedDuration);
+                DeveloperUnusedDurationTextBlock.Text = FormatDuration(plan.UnusedDuration);
                 DeveloperStagesListView.ItemsSource = plan.Stages
-                    .Select(stage => FormatStage(stage, settings.UseSeconds))
+                    .Select(FormatStage)
                     .ToList();
                 DeveloperTimerEventTextBlock.Text = string.Empty;
                 RenderTimer(_timerRunner.Snapshot);
@@ -206,8 +198,6 @@ namespace FocusGuard.Clock.App
             FocusPeriodBox.Value = settings.FocusPeriod;
             BreakPeriodBox.Value = settings.BreakPeriod;
             SkipBreaksCheckBox.IsChecked = settings.SkipBreaks;
-            UseSecondsCheckBox.IsChecked = settings.UseSeconds;
-            ApplyTimeUnitLabels();
         }
 
         private ClockSettings ReadSettingsFromInputs()
@@ -216,8 +206,7 @@ namespace FocusGuard.Clock.App
                 TotalDuration: ReadWholeNumber(TotalDurationBox),
                 FocusPeriod: ReadWholeNumber(FocusPeriodBox),
                 BreakPeriod: ReadWholeNumber(BreakPeriodBox),
-                SkipBreaks: SkipBreaksCheckBox.IsChecked == true,
-                UseSeconds: UseSecondsCheckBox.IsChecked == true);
+                SkipBreaks: SkipBreaksCheckBox.IsChecked == true);
         }
 
         private static int ReadWholeNumber(NumberBox numberBox)
@@ -230,13 +219,13 @@ namespace FocusGuard.Clock.App
             return (int)Math.Round(numberBox.Value);
         }
 
-        private static string FormatStage(CycleStage stage, bool useSeconds)
+        private static string FormatStage(CycleStage stage)
         {
             var label = stage.IsFocus
                 ? $"Focus {stage.FocusPeriodNumber} of {stage.TotalFocusPeriods}"
                 : $"Break after focus {stage.FocusPeriodNumber}";
 
-            return $"{label}: {FormatDuration(stage.Duration, useSeconds)}";
+            return $"{label}: {FormatDuration(stage.Duration)}";
         }
 
         private void RenderTimer(FocusTimerSnapshot? snapshot)
@@ -323,31 +312,9 @@ namespace FocusGuard.Clock.App
                 : $"{minutes:00}:{seconds:00}";
         }
 
-        private static TimeSpan ToDuration(int value, bool useSeconds)
+        private static string FormatDuration(TimeSpan duration)
         {
-            return useSeconds
-                ? TimeSpan.FromSeconds(value)
-                : TimeSpan.FromMinutes(value);
-        }
-
-        private static string FormatDuration(TimeSpan duration, bool useSeconds)
-        {
-            if (useSeconds)
-            {
-                return $"{(int)duration.TotalSeconds} sec";
-            }
-
             return $"{(int)duration.TotalMinutes} min";
-        }
-
-        private void ApplyTimeUnitLabels()
-        {
-            var unit = ReadSettingsFromInputs().UseSeconds
-                ? "seconds"
-                : "minutes";
-            TotalDurationBox.Header = $"Total duration ({unit})";
-            FocusPeriodBox.Header = $"Focus period ({unit})";
-            BreakPeriodBox.Header = $"Break period ({unit})";
         }
     }
 }

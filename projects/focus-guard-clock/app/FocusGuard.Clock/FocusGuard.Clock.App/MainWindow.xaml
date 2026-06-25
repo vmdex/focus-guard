@@ -85,12 +85,6 @@
                     x:Name="SkipBreaksCheckBox"
                     Content="Skip breaks" />
 
-                <CheckBox
-                    x:Name="UseSecondsCheckBox"
-                    Content="Use seconds"
-                    Checked="UseSecondsCheckBox_Changed"
-                    Unchecked="UseSecondsCheckBox_Changed" />
-
                 <Button
                     Content="Calculate"
                     Click="CalculateButton_Click" />
