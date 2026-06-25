@@ -42,7 +42,7 @@ namespace FocusGuard.Clock.App
         private void ConfigureTitleBar()
         {
             ExtendsContentIntoTitleBar = true;
-            SetTitleBar(AppTitleBar);
+            SetTitleBar(WindowDragArea);
         }
 
         private void FocusSessionNavButton_Click(object sender, RoutedEventArgs e)

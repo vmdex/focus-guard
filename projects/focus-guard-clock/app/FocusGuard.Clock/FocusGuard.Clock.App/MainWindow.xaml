@@ -19,6 +19,15 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
+        <Grid
+            x:Name="WindowDragArea"
+            Grid.ColumnSpan="2"
+            Height="32"
+            Margin="0,0,140,0"
+            VerticalAlignment="Top"
+            Background="Transparent"
+            Canvas.ZIndex="10" />
+
         <Border
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
