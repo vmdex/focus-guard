@@ -56,11 +56,34 @@ public sealed class FocusTimerRunner
 
     public FocusTimerSnapshot Resume()
     {
+        Resume(out _);
+        return Snapshot;
+    }
+
+    public FocusTimerSnapshot Resume(out IReadOnlyList<FocusTimerEvent> events)
+    {
         if (_status is FocusTimerStatus.Paused)
         {
-            _status = FocusTimerStatus.Running;
+            var transitionEvents = new List<FocusTimerEvent>();
+            var currentStage = _plan.Stages[_currentStageIndex];
+
+            if (currentStage.IsBreak)
+            {
+                // Resuming a paused break means "I am ready to focus now".
+                // The remaining break time is skipped instead of being counted as elapsed.
+                MoveToNextStage(transitionEvents);
+            }
+
+            if (_status is not FocusTimerStatus.Completed)
+            {
+                _status = FocusTimerStatus.Running;
+            }
+
+            events = transitionEvents;
+            return Snapshot;
         }
 
+        events = [];
         return Snapshot;
     }
 

@@ -113,7 +113,9 @@ namespace FocusGuard.Clock.App
             }
 
             _lastTickAt = DateTimeOffset.Now;
-            RenderTimer(_timerRunner.Resume());
+            var snapshot = _timerRunner.Resume(out var events);
+            RenderEvents(events);
+            RenderTimer(snapshot);
             _timer.Start();
         }
 

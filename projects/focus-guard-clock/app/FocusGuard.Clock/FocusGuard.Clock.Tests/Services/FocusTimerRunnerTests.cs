@@ -102,6 +102,26 @@ public sealed class FocusTimerRunnerTests
     }
 
     [TestMethod]
+    public void Resume_WhenPausedDuringBreak_StartsNextFocusIfAvailable()
+    {
+        var runner = CreateRunner(total: 30, focus: 20, breakDuration: 5);
+        runner.Start();
+        runner.Advance(TimeSpan.FromMinutes(20));
+        runner.Advance(TimeSpan.FromMinutes(2));
+        runner.Pause();
+
+        var snapshot = runner.Resume(out var events);
+
+        Assert.AreEqual(FocusTimerStatus.Running, snapshot.Status);
+        Assert.AreEqual(CycleStageKind.Focus, snapshot.CurrentStage?.Kind);
+        Assert.AreEqual(TimeSpan.Zero, snapshot.ElapsedInCurrentStage);
+        Assert.AreEqual(TimeSpan.FromMinutes(22), snapshot.TotalElapsed);
+        Assert.AreEqual(TimeSpan.FromMinutes(20), snapshot.FocusElapsed);
+        Assert.AreEqual(1, events.Count);
+        Assert.AreEqual(FocusTimerEventKind.FocusStarted, events[0].Kind);
+    }
+
+    [TestMethod]
     public void Stop_ReturnsElapsedFocusTimeAndResetsToIdle()
     {
         var runner = CreateRunner(total: 30, focus: 20, breakDuration: 5);
