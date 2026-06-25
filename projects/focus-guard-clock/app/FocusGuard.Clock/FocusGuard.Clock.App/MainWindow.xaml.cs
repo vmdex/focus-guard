@@ -121,13 +121,6 @@ namespace FocusGuard.Clock.App
 
         private void ResetButton_Click(object sender, RoutedEventArgs e)
         {
-            _timer.Stop();
-            DeveloperTimerEventTextBlock.Text = string.Empty;
-            RenderTimer(_timerRunner?.Reset());
-        }
-
-        private void StopButton_Click(object sender, RoutedEventArgs e)
-        {
             if (_timerRunner is null)
             {
                 return;
@@ -135,7 +128,7 @@ namespace FocusGuard.Clock.App
 
             _timer.Stop();
             var result = _timerRunner.Stop();
-            var message = $"Stopped. Focus progress: {FormatTime(result.FocusElapsed)}";
+            var message = $"Reset. Focus progress: {FormatTime(result.FocusElapsed)}";
             DeveloperTimerEventTextBlock.Text = message;
             RenderTimer(_timerRunner.Snapshot);
         }
@@ -262,13 +255,11 @@ namespace FocusGuard.Clock.App
             var canPause = hasTimer && status is FocusTimerStatus.Running;
             var canResume = hasTimer && status is FocusTimerStatus.Paused;
             var canReset = hasTimer && status is not FocusTimerStatus.Idle;
-            var canStop = hasTimer && status is FocusTimerStatus.Running or FocusTimerStatus.Paused;
 
             DeveloperStartButton.IsEnabled = canStart;
             DeveloperPauseButton.IsEnabled = canPause;
             DeveloperResumeButton.IsEnabled = canResume;
             DeveloperResetButton.IsEnabled = canReset;
-            DeveloperStopButton.IsEnabled = canStop;
             AdvanceButton.IsEnabled = hasTimer && status is FocusTimerStatus.Running;
         }
 

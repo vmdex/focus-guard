@@ -252,10 +252,6 @@
                                 x:Name="DeveloperResetButton"
                                 Content="Reset"
                                 Click="ResetButton_Click" />
-                            <Button
-                                x:Name="DeveloperStopButton"
-                                Content="Stop"
-                                Click="StopButton_Click" />
                             <TextBlock
                                 x:Name="DeveloperTimerEventTextBlock"
                                 VerticalAlignment="Center"
