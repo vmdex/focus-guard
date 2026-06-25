@@ -60,10 +60,27 @@ Focus Guard Clock - це простий застосунок для focus sessio
 
 Користувач бачить:
 
+- номер поточного focus period у циклі;
 - залишок часу;
+- круговий progress timer;
 - кнопку pause;
 - кнопку stop;
 - кнопку finish early.
+- що буде далі, наприклад "Up next: 10 min break".
+
+### Paused
+
+Сесія або пауза призупинена.
+
+Користувач бачить:
+
+- той самий заголовок активного режиму, наприклад "Focus period (1 of 6)";
+- залишок часу на момент паузи;
+- круговий progress timer у призупиненому стані;
+- кнопку resume;
+- кнопку reset focus session;
+- меню додаткових дій;
+- статус "Paused" замість підказки наступного етапу.
 
 ### Break
 
@@ -86,6 +103,45 @@ Focus Guard Clock - це простий застосунок для focus sessio
 
 ## MVP-функції
 
+### Головний екран
+
+У v0.1 головний екран має бути простішим за Windows Clock.
+
+Потрібно показувати:
+
+- блок запуску focus session;
+- вибір або введення загальної тривалості;
+- розраховану кількість пауз;
+- checkbox або toggle skip breaks;
+- кнопку start focus session;
+- блок daily progress.
+
+Поки не потрібно показувати:
+
+- профіль користувача;
+- tasks;
+- інтеграцію з Microsoft To Do або іншими задачниками;
+- навігацію до Timer, Alarm, Stopwatch, World clock.
+
+### Daily progress
+
+Daily progress показує, скільки focus time користувач уже завершив за поточний день.
+
+Потрібно показувати:
+
+- daily goal;
+- completed focus time today;
+- yesterday focus time;
+- current streak.
+
+Налаштування daily progress:
+
+- daily goal duration;
+- час щоденного скидання прогресу;
+- include weekends in streaks on/off.
+
+У Windows Clock також є "completed tasks", але у v0.1 Focus Guard Clock tasks не використовує, тому цей пункт не потрібен.
+
 ### Таймер focus session
 
 Користувач може:
@@ -96,6 +152,23 @@ Focus Guard Clock - це простий застосунок для focus sessio
 - продовжити;
 - зупинити;
 - завершити достроково.
+
+Під час активної сесії потрібно показувати:
+
+- заголовок на кшталт "Focus period (1 of 6)";
+- великий залишок часу;
+- візуальний круговий прогрес;
+- pause/resume;
+- меню додаткових дій;
+- підказку наступного етапу, наприклад "Up next: 10 min break".
+
+У paused-стані:
+
+- таймер не зменшується;
+- primary action змінюється з pause на resume;
+- поруч з resume показується окрема кнопка reset focus session;
+- підказка наступного етапу замінюється на "Paused";
+- додаткові дії мають бути доступні через меню.
 
 ### Пауза
 
@@ -150,6 +223,9 @@ Focus Guard Clock - це простий застосунок для focus sessio
 
 - default focus duration;
 - default break duration;
+- daily goal duration;
+- daily progress reset time;
+- include weekends in streaks on/off;
 - auto-start break on/off;
 - start session sound on/off;
 - start session melody;
