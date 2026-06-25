@@ -13,7 +13,7 @@ public sealed class FocusCycleCalculator
     ///
     /// Rule used by v0.1:
     /// total duration means the whole cycle duration, including breaks.
-    /// Breaks are placed only between focus periods, never after the last one.
+    /// A short final focus stage is allowed when there is leftover time after a break.
     /// </summary>
     public FocusCyclePlan Calculate(FocusCycleRequest request)
     {
@@ -24,18 +24,9 @@ public sealed class FocusCycleCalculator
             return BuildContinuousFocusPlan(request);
         }
 
-        // First decide how many full focus periods fit into the user's time budget.
-        // v0.1 does not create a shorter "partial" focus period from leftover time.
-        var focusPeriodCount = CalculateFocusPeriodCount(request);
-
-        // Breaks are only inserted between focus periods, never after the last one.
-        var breakCount = CalculateBreakCount(request, focusPeriodCount);
-
-        // The UI runner can later execute these stages one by one.
-        var stages = BuildStages(request, focusPeriodCount, breakCount);
-
-        // Used duration can be smaller than total duration when the leftover time
-        // is not long enough for another full focus period.
+        // Build the timeline step by step. This is easier to reason about than
+        // a single formula because the final focus stage may be shorter.
+        var stages = BuildStagesWithBreaks(request);
         var usedDuration = stages.Sum(stage => stage.DurationMinutes);
         var unusedDuration = request.TotalDurationMinutes - usedDuration;
 
@@ -72,57 +63,48 @@ public sealed class FocusCycleCalculator
             stages);
     }
 
-    private static int CalculateFocusPeriodCount(FocusCycleRequest request)
+    private static List<CycleStage> BuildStagesWithBreaks(FocusCycleRequest request)
     {
-        // With breaks enabled, one full pair is:
-        // focus + break.
-        //
-        // The last focus period does not need a break after it, so we add one
-        // break duration to the numerator. This lets the formula count that
-        // final focus period without requiring an extra trailing break.
-        //
-        // Example:
-        // total = 200, focus = 25, break = 10
-        // floor((200 + 10) / (25 + 10)) = 6 focus periods.
-        var fullFocusAndBreakPair = request.FocusPeriodMinutes + request.BreakPeriodMinutes;
-        var budgetAdjustedForFinalFocus = request.TotalDurationMinutes + request.BreakPeriodMinutes;
+        var drafts = new List<StageDraft>();
+        var remainingMinutes = request.TotalDurationMinutes;
+        var focusPeriodNumber = 0;
 
-        return budgetAdjustedForFinalFocus / fullFocusAndBreakPair;
-    }
-
-    private static int CalculateBreakCount(FocusCycleRequest request, int focusPeriodCount)
-    {
-        return focusPeriodCount - 1;
-    }
-
-    private static List<CycleStage> BuildStages(
-        FocusCycleRequest request,
-        int focusPeriodCount,
-        int breakCount)
-    {
-        var stages = new List<CycleStage>(focusPeriodCount + breakCount);
-
-        for (var focusPeriodNumber = 1; focusPeriodNumber <= focusPeriodCount; focusPeriodNumber++)
+        while (remainingMinutes > 0)
         {
-            stages.Add(new CycleStage(
-                CycleStageKind.Focus,
-                request.FocusPeriodMinutes,
-                focusPeriodNumber,
-                focusPeriodCount));
+            focusPeriodNumber++;
 
-            var shouldAddBreak = !request.SkipBreaks && focusPeriodNumber < focusPeriodCount;
+            // The final focus stage can be shorter than the configured focus period.
+            // Example: total 30, focus 20, break 5 -> Focus 20, Break 5, Focus 5.
+            var focusDuration = Math.Min(request.FocusPeriodMinutes, remainingMinutes);
+            drafts.Add(new StageDraft(CycleStageKind.Focus, focusDuration, focusPeriodNumber));
+            remainingMinutes -= focusDuration;
 
-            if (shouldAddBreak)
+            if (remainingMinutes <= 0)
             {
-                stages.Add(new CycleStage(
-                    CycleStageKind.Break,
-                    request.BreakPeriodMinutes,
-                    focusPeriodNumber,
-                    focusPeriodCount));
+                break;
             }
+
+            // A break is useful only if it fully fits and there is still time
+            // after it for another focus stage.
+            if (remainingMinutes > request.BreakPeriodMinutes)
+            {
+                drafts.Add(new StageDraft(CycleStageKind.Break, request.BreakPeriodMinutes, focusPeriodNumber));
+                remainingMinutes -= request.BreakPeriodMinutes;
+                continue;
+            }
+
+            break;
         }
 
-        return stages;
+        var totalFocusPeriods = drafts.Count(stage => stage.Kind == CycleStageKind.Focus);
+
+        return drafts
+            .Select(stage => new CycleStage(
+                stage.Kind,
+                stage.DurationMinutes,
+                stage.FocusPeriodNumber,
+                totalFocusPeriods))
+            .ToList();
     }
 
     private static void Validate(FocusCycleRequest request)
@@ -146,18 +128,16 @@ public sealed class FocusCycleCalculator
                 "Focus period duration must be greater than zero.");
         }
 
-        if (request.TotalDurationMinutes < request.FocusPeriodMinutes)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(request),
-                "Total duration must be greater than or equal to the focus period duration.");
-        }
-
         if (request.BreakPeriodMinutes <= 0)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(request),
-                "Break period duration must be greater than zero.");
+            "Break period duration must be greater than zero.");
         }
     }
+
+    private sealed record StageDraft(
+        CycleStageKind Kind,
+        int DurationMinutes,
+        int FocusPeriodNumber);
 }

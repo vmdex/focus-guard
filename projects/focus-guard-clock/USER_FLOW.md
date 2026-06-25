@@ -67,7 +67,25 @@ breaks = 0
 focus duration = totalDuration
 ```
 
-У v0.1 неповний focus period не створюється, коли breaks увімкнені.
+У v0.1 короткий фінальний focus stage може створюватися, якщо після break лишився час.
+
+Приклад:
+
+```text
+total duration = 30
+focus period = 20
+break period = 5
+```
+
+Схема:
+
+```text
+Focus 20
+Break 5
+Focus 5
+```
+
+Після короткого фінального focus stage застосунок показує фінальне сповіщення про break / завершення focus session.
 
 ### 3. Користувач натискає Start focus session
 
@@ -113,7 +131,8 @@ focus duration = totalDuration
 - поточний focus period записується в history як `completed`;
 - completed focus time додається до daily progress;
 - стан переходить у `Completed`;
-- `Start break sound` не відтворюється;
+- показується фінальне сповіщення про завершення focus session;
+- `Start break sound` не відтворюється, бо автоматична break не починається;
 - `Start session sound` не відтворюється.
 
 ## Break
@@ -229,6 +248,7 @@ focus duration = totalDuration
 
 - completed state сам по собі не має окремого звуку;
 - останнім автоматичним звуком у циклі може бути `Start session sound` або `Start break sound` залежно від переходів, але завершення циклу не дублюється ще одним сигналом.
+- якщо breaks увімкнені, але цикл має тільки один focus period і нуль breaks, після focus показується фінальне сповіщення про завершення focus session.
 
 ## Daily progress update
 

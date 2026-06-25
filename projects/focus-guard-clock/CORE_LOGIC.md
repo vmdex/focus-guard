@@ -52,6 +52,25 @@ Focus, Break, Focus, Break, Focus, Break, Focus, Break, Focus, Break, Focus
 6 * 25 + 5 * 10 = 200 minutes
 ```
 
+Якщо в загальну тривалість вміщується тільки один focus period, trailing break не створюється.
+
+Приклад:
+
+```text
+total duration = 20 minutes
+focus period = 20 minutes
+break period = 5 minutes
+```
+
+Результат:
+
+```text
+Focus 20
+breaks = 0
+```
+
+Після завершення цього focus stage застосунок має показати фінальне сповіщення про завершення focus session, але не створює автоматичну break.
+
 ## Breaks off
 
 Якщо `SkipBreaks = true`, це означає, що breaks вимкнені.
@@ -74,11 +93,30 @@ breaks = 0
 used duration = 20 minutes
 ```
 
-## Неповний focus period
+## Short final focus stage
 
-У v0.1 неповний focus period не створюється.
+У v0.1 короткий фінальний focus stage може створюватися.
 
-Якщо після розрахунку лишається короткий залишок, він потрапляє в `UnusedDurationMinutes`.
+Приклад:
+
+```text
+total duration = 30 minutes
+focus period = 20 minutes
+break period = 5 minutes
+```
+
+Результат:
+
+```text
+Focus 20
+Break 5
+Focus 5
+```
+
+На 25-й хвилині починається короткий фінальний focus stage тривалістю 5 хвилин.
+Після його завершення застосунок показує фінальне сповіщення про break / завершення focus session.
+
+Якщо залишок не вміщує повну break, він не використовується як break.
 
 ## Основні типи
 

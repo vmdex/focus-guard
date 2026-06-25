@@ -47,6 +47,46 @@ public sealed class FocusCycleCalculatorTests
     }
 
     [TestMethod]
+    public void Calculate_WithBreaksAndOneFocusPeriod_DoesNotCreateTrailingBreak()
+    {
+        var plan = _calculator.Calculate(new FocusCycleRequest(
+            TotalDurationMinutes: 20,
+            FocusPeriodMinutes: 20,
+            BreakPeriodMinutes: 5,
+            SkipBreaks: false));
+
+        Assert.AreEqual(1, plan.FocusPeriodCount);
+        Assert.AreEqual(0, plan.BreakCount);
+        Assert.AreEqual(1, plan.Stages.Count);
+        Assert.AreEqual(20, plan.UsedDurationMinutes);
+        Assert.AreEqual(0, plan.UnusedDurationMinutes);
+        Assert.IsTrue(plan.Stages[0].IsFocus);
+    }
+
+    [TestMethod]
+    public void Calculate_WithBreaksAndLeftoverAfterBreak_CreatesShortFinalFocusStage()
+    {
+        var plan = _calculator.Calculate(new FocusCycleRequest(
+            TotalDurationMinutes: 30,
+            FocusPeriodMinutes: 20,
+            BreakPeriodMinutes: 5,
+            SkipBreaks: false));
+
+        Assert.AreEqual(2, plan.FocusPeriodCount);
+        Assert.AreEqual(1, plan.BreakCount);
+        Assert.AreEqual(3, plan.Stages.Count);
+        Assert.AreEqual(30, plan.UsedDurationMinutes);
+        Assert.AreEqual(0, plan.UnusedDurationMinutes);
+
+        Assert.AreEqual(CycleStageKind.Focus, plan.Stages[0].Kind);
+        Assert.AreEqual(20, plan.Stages[0].DurationMinutes);
+        Assert.AreEqual(CycleStageKind.Break, plan.Stages[1].Kind);
+        Assert.AreEqual(5, plan.Stages[1].DurationMinutes);
+        Assert.AreEqual(CycleStageKind.Focus, plan.Stages[2].Kind);
+        Assert.AreEqual(5, plan.Stages[2].DurationMinutes);
+    }
+
+    [TestMethod]
     public void Calculate_WithSkipBreaks_CreatesOneContinuousFocusStage()
     {
         var plan = _calculator.Calculate(new FocusCycleRequest(
@@ -80,7 +120,7 @@ public sealed class FocusCycleCalculatorTests
     }
 
     [TestMethod]
-    public void Calculate_WhenTimeDoesNotFitFullPeriod_TracksUnusedDuration()
+    public void Calculate_WhenTimeDoesNotFitFullPeriod_CreatesShortFinalFocusStage()
     {
         var plan = _calculator.Calculate(new FocusCycleRequest(
             TotalDurationMinutes: 50,
@@ -88,21 +128,27 @@ public sealed class FocusCycleCalculatorTests
             BreakPeriodMinutes: 10,
             SkipBreaks: false));
 
-        Assert.AreEqual(1, plan.FocusPeriodCount);
-        Assert.AreEqual(0, plan.BreakCount);
-        Assert.AreEqual(25, plan.UsedDurationMinutes);
-        Assert.AreEqual(25, plan.UnusedDurationMinutes);
+        Assert.AreEqual(2, plan.FocusPeriodCount);
+        Assert.AreEqual(1, plan.BreakCount);
+        Assert.AreEqual(50, plan.UsedDurationMinutes);
+        Assert.AreEqual(0, plan.UnusedDurationMinutes);
+        Assert.AreEqual(15, plan.Stages.Last().DurationMinutes);
     }
 
     [TestMethod]
-    public void Calculate_WhenTotalDurationIsShorterThanFocusPeriod_Throws()
+    public void Calculate_WhenTotalDurationIsShorterThanFocusPeriod_CreatesShortFocusStage()
     {
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
-            _calculator.Calculate(new FocusCycleRequest(
-                TotalDurationMinutes: 10,
-                FocusPeriodMinutes: 25,
-                BreakPeriodMinutes: 10,
-                SkipBreaks: false)));
+        var plan = _calculator.Calculate(new FocusCycleRequest(
+            TotalDurationMinutes: 10,
+            FocusPeriodMinutes: 25,
+            BreakPeriodMinutes: 10,
+            SkipBreaks: false));
+
+        Assert.AreEqual(1, plan.FocusPeriodCount);
+        Assert.AreEqual(0, plan.BreakCount);
+        Assert.AreEqual(10, plan.UsedDurationMinutes);
+        Assert.AreEqual(0, plan.UnusedDurationMinutes);
+        Assert.AreEqual(10, plan.Stages[0].DurationMinutes);
     }
 
     [TestMethod]
