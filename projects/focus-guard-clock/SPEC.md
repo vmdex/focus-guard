@@ -242,6 +242,8 @@ Daily progress показує, скільки focus time користувач у
 - якщо skip breaks увімкнено, кількість focus periods завжди 1, а duration цього focus stage дорівнює total duration.
 - приклад: total duration 20, focus period 20, break period 5 -> 1 focus period, 0 breaks, фінальне сповіщення після завершення focus.
 - приклад: total duration 30, focus period 20, break period 5 -> Focus 20, Break 5, Focus 5, фінальне сповіщення після короткого focus.
+- приклад: total duration 45, focus period 20, break period 5 -> Focus 20, Break 5, Focus 20, фінальне сповіщення на 45-й хвилині.
+- приклад: total duration 50, focus period 20, break period 5 -> Focus 20, Break 5, Focus 20, unused 5, фінальне сповіщення на 45-й хвилині.
 
 ### Поведінка звуків і сповіщень
 

@@ -118,6 +118,47 @@ Focus 5
 
 Якщо залишок не вміщує повну break, він не використовується як break.
 
+Якщо після break вміщується повний focus stage, він створюється повної тривалості.
+
+Приклад:
+
+```text
+total duration = 45 minutes
+focus period = 20 minutes
+break period = 5 minutes
+```
+
+Результат:
+
+```text
+Focus 20
+Break 5
+Focus 20
+```
+
+На 45-й хвилині застосунок показує фінальне сповіщення про break / завершення focus session, і робота завершується.
+
+Якщо після останнього focus stage лишається час на break, але вже немає часу на наступний focus stage, trailing break не створюється.
+
+Приклад:
+
+```text
+total duration = 50 minutes
+focus period = 20 minutes
+break period = 5 minutes
+```
+
+Результат:
+
+```text
+Focus 20
+Break 5
+Focus 20
+unused = 5
+```
+
+На 45-й хвилині застосунок показує фінальне сповіщення про break / завершення focus session, і робота завершується. Останні 5 хвилин не стають break, бо після них не буде наступного focus stage.
+
 ## Основні типи
 
 - `FocusCycleRequest` - вхідні налаштування користувача.

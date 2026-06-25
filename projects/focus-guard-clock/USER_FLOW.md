@@ -87,6 +87,45 @@ Focus 5
 
 Після короткого фінального focus stage застосунок показує фінальне сповіщення про break / завершення focus session.
 
+Інший приклад:
+
+```text
+total duration = 45
+focus period = 20
+break period = 5
+```
+
+Схема:
+
+```text
+Focus 20
+Break 5
+Focus 20
+```
+
+На 45-й хвилині застосунок показує фінальне сповіщення про break / завершення focus session, і цикл завершується.
+
+Якщо після останнього focus stage лишається час на break, але вже не буде наступного focus stage, break не запускається.
+
+Приклад:
+
+```text
+total duration = 50
+focus period = 20
+break period = 5
+```
+
+Схема:
+
+```text
+Focus 20
+Break 5
+Focus 20
+unused 5
+```
+
+На 45-й хвилині застосунок показує фінальне сповіщення про break / завершення focus session, і цикл завершується.
+
 ### 3. Користувач натискає Start focus session
 
 Стан переходить з `Idle` у `Focus`.

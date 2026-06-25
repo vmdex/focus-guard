@@ -87,6 +87,52 @@ public sealed class FocusCycleCalculatorTests
     }
 
     [TestMethod]
+    public void Calculate_WithBreaksAndFullFinalFocusStage_EndsAfterSecondFocus()
+    {
+        var plan = _calculator.Calculate(new FocusCycleRequest(
+            TotalDurationMinutes: 45,
+            FocusPeriodMinutes: 20,
+            BreakPeriodMinutes: 5,
+            SkipBreaks: false));
+
+        Assert.AreEqual(2, plan.FocusPeriodCount);
+        Assert.AreEqual(1, plan.BreakCount);
+        Assert.AreEqual(3, plan.Stages.Count);
+        Assert.AreEqual(45, plan.UsedDurationMinutes);
+        Assert.AreEqual(0, plan.UnusedDurationMinutes);
+
+        Assert.AreEqual(CycleStageKind.Focus, plan.Stages[0].Kind);
+        Assert.AreEqual(20, plan.Stages[0].DurationMinutes);
+        Assert.AreEqual(CycleStageKind.Break, plan.Stages[1].Kind);
+        Assert.AreEqual(5, plan.Stages[1].DurationMinutes);
+        Assert.AreEqual(CycleStageKind.Focus, plan.Stages[2].Kind);
+        Assert.AreEqual(20, plan.Stages[2].DurationMinutes);
+    }
+
+    [TestMethod]
+    public void Calculate_WithBreaksAndNoRoomForNextFocus_DoesNotCreateTrailingBreak()
+    {
+        var plan = _calculator.Calculate(new FocusCycleRequest(
+            TotalDurationMinutes: 50,
+            FocusPeriodMinutes: 20,
+            BreakPeriodMinutes: 5,
+            SkipBreaks: false));
+
+        Assert.AreEqual(2, plan.FocusPeriodCount);
+        Assert.AreEqual(1, plan.BreakCount);
+        Assert.AreEqual(3, plan.Stages.Count);
+        Assert.AreEqual(45, plan.UsedDurationMinutes);
+        Assert.AreEqual(5, plan.UnusedDurationMinutes);
+
+        Assert.AreEqual(CycleStageKind.Focus, plan.Stages[0].Kind);
+        Assert.AreEqual(20, plan.Stages[0].DurationMinutes);
+        Assert.AreEqual(CycleStageKind.Break, plan.Stages[1].Kind);
+        Assert.AreEqual(5, plan.Stages[1].DurationMinutes);
+        Assert.AreEqual(CycleStageKind.Focus, plan.Stages[2].Kind);
+        Assert.AreEqual(20, plan.Stages[2].DurationMinutes);
+    }
+
+    [TestMethod]
     public void Calculate_WithSkipBreaks_CreatesOneContinuousFocusStage()
     {
         var plan = _calculator.Calculate(new FocusCycleRequest(
