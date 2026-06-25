@@ -80,6 +80,7 @@
             <Grid Grid.Column="1" RowSpacing="16">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
@@ -155,9 +156,114 @@
                     </Border>
                 </Grid>
 
+                <Border
+                    Grid.Row="1"
+                    Padding="16"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <Grid RowSpacing="16">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Spacing="4">
+                                <TextBlock
+                                    Text="Current timer"
+                                    FontSize="18"
+                                    FontWeight="SemiBold" />
+                                <TextBlock
+                                    x:Name="TimerStatusTextBlock"
+                                    Opacity="0.72" />
+                            </StackPanel>
+
+                            <TextBlock
+                                x:Name="RemainingTimeTextBlock"
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                FontSize="32"
+                                FontWeight="SemiBold" />
+                        </Grid>
+
+                        <Grid
+                            Grid.Row="1"
+                            ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Stage" Opacity="0.72" />
+                                <TextBlock
+                                    x:Name="CurrentStageTextBlock"
+                                    FontWeight="SemiBold" />
+                            </StackPanel>
+
+                            <StackPanel
+                                Grid.Column="1"
+                                Spacing="4">
+                                <TextBlock Text="Focus elapsed" Opacity="0.72" />
+                                <TextBlock
+                                    x:Name="FocusElapsedTextBlock"
+                                    FontWeight="SemiBold" />
+                            </StackPanel>
+
+                            <StackPanel
+                                Grid.Column="2"
+                                Spacing="4">
+                                <TextBlock Text="Total elapsed" Opacity="0.72" />
+                                <TextBlock
+                                    x:Name="TotalElapsedTextBlock"
+                                    FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel
+                            Grid.Row="2"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <Button
+                                x:Name="StartButton"
+                                Content="Start"
+                                Click="StartButton_Click" />
+                            <Button
+                                x:Name="PauseButton"
+                                Content="Pause"
+                                Click="PauseButton_Click" />
+                            <Button
+                                x:Name="ResumeButton"
+                                Content="Resume"
+                                Click="ResumeButton_Click" />
+                            <Button
+                                x:Name="ResetButton"
+                                Content="Reset"
+                                Click="ResetButton_Click" />
+                            <Button
+                                x:Name="StopButton"
+                                Content="Stop"
+                                Click="StopButton_Click" />
+                            <TextBlock
+                                x:Name="TimerEventTextBlock"
+                                VerticalAlignment="Center"
+                                Opacity="0.72" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
                 <ListView
                     x:Name="StagesListView"
-                    Grid.Row="1">
+                    Grid.Row="2">
                     <ListView.Header>
                         <TextBlock
                             Text="Stages"
