@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "FocusGuard.Clock.App (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "FocusGuard.Clock.App (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
