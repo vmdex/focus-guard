@@ -41,7 +41,7 @@
                     Spacing="12"
                     Padding="8,0">
                         <SymbolIcon
-                            Symbol="Clock"
+                            Symbol="Admin"
                             Width="20"
                             Height="20" />
                         <TextBlock
