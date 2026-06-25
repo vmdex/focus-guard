@@ -69,6 +69,23 @@ focus duration = totalDuration
 
 У v0.1 короткий фінальний focus stage може створюватися, якщо після break лишився час.
 
+Якщо total duration менший за focus period, застосунок не показує помилку.
+Замість цього він створює один короткий focus stage.
+
+Приклад:
+
+```text
+total duration = 10
+focus period = 25
+break period = 10
+```
+
+Схема:
+
+```text
+Focus 10
+```
+
 Приклад:
 
 ```text

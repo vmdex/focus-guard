@@ -97,6 +97,25 @@ used duration = 20 minutes
 
 У v0.1 короткий фінальний focus stage може створюватися.
 
+Короткий focus stage також може бути єдиним stage у циклі, якщо `totalDuration`
+менший за `focusPeriod`.
+
+Приклад:
+
+```text
+total duration = 10 minutes
+focus period = 25 minutes
+break period = 10 minutes
+```
+
+Результат:
+
+```text
+Focus 10
+```
+
+Помилка не створюється, бо користувач усе одно може корисно попрацювати доступні 10 хвилин.
+
 Приклад:
 
 ```text

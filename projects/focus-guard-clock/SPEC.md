@@ -240,6 +240,8 @@ Daily progress показує, скільки focus time користувач у
 - мінімальна кількість focus periods - 1;
 - якщо після break лишається короткий залишок часу, v0.1 створює короткий фінальний focus stage.
 - якщо skip breaks увімкнено, кількість focus periods завжди 1, а duration цього focus stage дорівнює total duration.
+- якщо total duration менший за focus period, v0.1 створює один короткий focus stage замість помилки.
+- приклад: total duration 10, focus period 25, break period 10 -> Focus 10, фінальне сповіщення після завершення focus.
 - приклад: total duration 20, focus period 20, break period 5 -> 1 focus period, 0 breaks, фінальне сповіщення після завершення focus.
 - приклад: total duration 30, focus period 20, break period 5 -> Focus 20, Break 5, Focus 5, фінальне сповіщення після короткого focus.
 - приклад: total duration 45, focus period 20, break period 5 -> Focus 20, Break 5, Focus 20, фінальне сповіщення на 45-й хвилині.
