@@ -87,6 +87,25 @@ public sealed class FocusCycleCalculatorTests
     }
 
     [TestMethod]
+    public void Calculate_WithSecondDurations_CreatesShortFinalFocusStage()
+    {
+        var plan = _calculator.Calculate(new FocusCycleRequest(
+            TotalDuration: TimeSpan.FromSeconds(30),
+            FocusPeriod: TimeSpan.FromSeconds(20),
+            BreakPeriod: TimeSpan.FromSeconds(5),
+            SkipBreaks: false));
+
+        Assert.AreEqual(2, plan.FocusPeriodCount);
+        Assert.AreEqual(1, plan.BreakCount);
+        Assert.AreEqual(TimeSpan.FromSeconds(30), plan.UsedDuration);
+        Assert.AreEqual(TimeSpan.Zero, plan.UnusedDuration);
+
+        Assert.AreEqual(TimeSpan.FromSeconds(20), plan.Stages[0].Duration);
+        Assert.AreEqual(TimeSpan.FromSeconds(5), plan.Stages[1].Duration);
+        Assert.AreEqual(TimeSpan.FromSeconds(5), plan.Stages[2].Duration);
+    }
+
+    [TestMethod]
     public void Calculate_WithBreaksAndFullFinalFocusStage_EndsAfterSecondFocus()
     {
         var plan = _calculator.Calculate(new FocusCycleRequest(

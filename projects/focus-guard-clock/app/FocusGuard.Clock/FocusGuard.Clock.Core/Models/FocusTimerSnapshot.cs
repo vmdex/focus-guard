@@ -15,7 +15,7 @@ public sealed record FocusTimerSnapshot(
 {
     public TimeSpan CurrentStageDuration => CurrentStage is null
         ? TimeSpan.Zero
-        : TimeSpan.FromMinutes(CurrentStage.DurationMinutes);
+        : CurrentStage.Duration;
 
     public TimeSpan RemainingInCurrentStage
     {
@@ -29,4 +29,3 @@ public sealed record FocusTimerSnapshot(
         }
     }
 }
-

@@ -5,10 +5,14 @@ namespace FocusGuard.Clock.App.Services;
 
 public sealed class ClockSettingsService
 {
-    private const string TotalDurationKey = "Clock.TotalDurationMinutes";
-    private const string FocusPeriodKey = "Clock.FocusPeriodMinutes";
-    private const string BreakPeriodKey = "Clock.BreakPeriodMinutes";
+    private const string TotalDurationKey = "Clock.TotalDuration";
+    private const string FocusPeriodKey = "Clock.FocusPeriod";
+    private const string BreakPeriodKey = "Clock.BreakPeriod";
+    private const string LegacyTotalDurationMinutesKey = "Clock.TotalDurationMinutes";
+    private const string LegacyFocusPeriodMinutesKey = "Clock.FocusPeriodMinutes";
+    private const string LegacyBreakPeriodMinutesKey = "Clock.BreakPeriodMinutes";
     private const string SkipBreaksKey = "Clock.SkipBreaks";
+    private const string UseSecondsKey = "Clock.UseSeconds";
 
     private readonly ApplicationDataContainer _localSettings = ApplicationData.Current.LocalSettings;
 
@@ -17,23 +21,25 @@ public sealed class ClockSettingsService
         var defaults = ClockSettings.Defaults;
 
         return new ClockSettings(
-            TotalDurationMinutes: ReadInt(TotalDurationKey, defaults.TotalDurationMinutes),
-            FocusPeriodMinutes: ReadInt(FocusPeriodKey, defaults.FocusPeriodMinutes),
-            BreakPeriodMinutes: ReadInt(BreakPeriodKey, defaults.BreakPeriodMinutes),
-            SkipBreaks: ReadBool(SkipBreaksKey, defaults.SkipBreaks));
+            TotalDuration: ReadInt(TotalDurationKey, LegacyTotalDurationMinutesKey, defaults.TotalDuration),
+            FocusPeriod: ReadInt(FocusPeriodKey, LegacyFocusPeriodMinutesKey, defaults.FocusPeriod),
+            BreakPeriod: ReadInt(BreakPeriodKey, LegacyBreakPeriodMinutesKey, defaults.BreakPeriod),
+            SkipBreaks: ReadBool(SkipBreaksKey, defaults.SkipBreaks),
+            UseSeconds: ReadBool(UseSecondsKey, defaults.UseSeconds));
     }
 
     public void Save(ClockSettings settings)
     {
-        _localSettings.Values[TotalDurationKey] = settings.TotalDurationMinutes;
-        _localSettings.Values[FocusPeriodKey] = settings.FocusPeriodMinutes;
-        _localSettings.Values[BreakPeriodKey] = settings.BreakPeriodMinutes;
+        _localSettings.Values[TotalDurationKey] = settings.TotalDuration;
+        _localSettings.Values[FocusPeriodKey] = settings.FocusPeriod;
+        _localSettings.Values[BreakPeriodKey] = settings.BreakPeriod;
         _localSettings.Values[SkipBreaksKey] = settings.SkipBreaks;
+        _localSettings.Values[UseSecondsKey] = settings.UseSeconds;
     }
 
-    private int ReadInt(string key, int fallback)
+    private int ReadInt(string key, string legacyKey, int fallback)
     {
-        var value = _localSettings.Values[key];
+        var value = _localSettings.Values[key] ?? _localSettings.Values[legacyKey];
 
         return value is int intValue
             ? intValue
@@ -49,4 +55,3 @@ public sealed class ClockSettingsService
             : fallback;
     }
 }
-

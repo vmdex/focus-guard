@@ -101,7 +101,7 @@ public sealed class FocusTimerRunner
         while (remainingElapsed > TimeSpan.Zero && _status is FocusTimerStatus.Running)
         {
             var currentStage = _plan.Stages[_currentStageIndex];
-            var timeLeftInStage = TimeSpan.FromMinutes(currentStage.DurationMinutes) - _elapsedInCurrentStage;
+            var timeLeftInStage = currentStage.Duration - _elapsedInCurrentStage;
             var step = remainingElapsed < timeLeftInStage
                 ? remainingElapsed
                 : timeLeftInStage;
@@ -109,7 +109,7 @@ public sealed class FocusTimerRunner
             AddElapsed(step, currentStage);
             remainingElapsed -= step;
 
-            if (_elapsedInCurrentStage >= TimeSpan.FromMinutes(currentStage.DurationMinutes))
+            if (_elapsedInCurrentStage >= currentStage.Duration)
             {
                 MoveToNextStage(events);
             }
@@ -166,4 +166,3 @@ public sealed class FocusTimerRunner
             isComplete);
     }
 }
-

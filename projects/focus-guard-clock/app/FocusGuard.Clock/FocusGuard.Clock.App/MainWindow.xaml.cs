@@ -50,9 +50,9 @@ namespace FocusGuard.Clock.App
                 _settingsService.Save(settings);
 
                 var request = new FocusCycleRequest(
-                    settings.TotalDurationMinutes,
-                    settings.FocusPeriodMinutes,
-                    settings.BreakPeriodMinutes,
+                    ToDuration(settings.TotalDuration, settings.UseSeconds),
+                    ToDuration(settings.FocusPeriod, settings.UseSeconds),
+                    ToDuration(settings.BreakPeriod, settings.UseSeconds),
                     settings.SkipBreaks);
 
                 var plan = _calculator.Calculate(request);
@@ -62,9 +62,11 @@ namespace FocusGuard.Clock.App
                 ErrorTextBlock.Visibility = Visibility.Collapsed;
                 FocusCountTextBlock.Text = plan.FocusPeriodCount.ToString();
                 BreakCountTextBlock.Text = plan.BreakCount.ToString();
-                UsedDurationTextBlock.Text = $"{plan.UsedDurationMinutes} min";
-                UnusedDurationTextBlock.Text = $"{plan.UnusedDurationMinutes} min";
-                StagesListView.ItemsSource = plan.Stages.Select(FormatStage).ToList();
+                UsedDurationTextBlock.Text = FormatDuration(plan.UsedDuration, settings.UseSeconds);
+                UnusedDurationTextBlock.Text = FormatDuration(plan.UnusedDuration, settings.UseSeconds);
+                StagesListView.ItemsSource = plan.Stages
+                    .Select(stage => FormatStage(stage, settings.UseSeconds))
+                    .ToList();
                 TimerEventTextBlock.Text = string.Empty;
                 RenderTimer(_timerRunner.Snapshot);
             }
@@ -158,22 +160,24 @@ namespace FocusGuard.Clock.App
 
         private void ApplySettings(ClockSettings settings)
         {
-            TotalDurationBox.Value = settings.TotalDurationMinutes;
-            FocusPeriodBox.Value = settings.FocusPeriodMinutes;
-            BreakPeriodBox.Value = settings.BreakPeriodMinutes;
+            TotalDurationBox.Value = settings.TotalDuration;
+            FocusPeriodBox.Value = settings.FocusPeriod;
+            BreakPeriodBox.Value = settings.BreakPeriod;
             SkipBreaksCheckBox.IsChecked = settings.SkipBreaks;
+            UseSecondsCheckBox.IsChecked = settings.UseSeconds;
         }
 
         private ClockSettings ReadSettingsFromInputs()
         {
             return new ClockSettings(
-                TotalDurationMinutes: ReadWholeMinutes(TotalDurationBox),
-                FocusPeriodMinutes: ReadWholeMinutes(FocusPeriodBox),
-                BreakPeriodMinutes: ReadWholeMinutes(BreakPeriodBox),
-                SkipBreaks: SkipBreaksCheckBox.IsChecked == true);
+                TotalDuration: ReadWholeNumber(TotalDurationBox),
+                FocusPeriod: ReadWholeNumber(FocusPeriodBox),
+                BreakPeriod: ReadWholeNumber(BreakPeriodBox),
+                SkipBreaks: SkipBreaksCheckBox.IsChecked == true,
+                UseSeconds: UseSecondsCheckBox.IsChecked == true);
         }
 
-        private static int ReadWholeMinutes(NumberBox numberBox)
+        private static int ReadWholeNumber(NumberBox numberBox)
         {
             if (double.IsNaN(numberBox.Value))
             {
@@ -183,13 +187,13 @@ namespace FocusGuard.Clock.App
             return (int)Math.Round(numberBox.Value);
         }
 
-        private static string FormatStage(CycleStage stage)
+        private static string FormatStage(CycleStage stage, bool useSeconds)
         {
             var label = stage.IsFocus
                 ? $"Focus {stage.FocusPeriodNumber} of {stage.TotalFocusPeriods}"
                 : $"Break after focus {stage.FocusPeriodNumber}";
 
-            return $"{label}: {stage.DurationMinutes} min";
+            return $"{label}: {FormatDuration(stage.Duration, useSeconds)}";
         }
 
         private void RenderTimer(FocusTimerSnapshot? snapshot)
@@ -261,6 +265,23 @@ namespace FocusGuard.Clock.App
             return hours > 0
                 ? $"{hours}:{minutes:00}:{seconds:00}"
                 : $"{minutes:00}:{seconds:00}";
+        }
+
+        private static TimeSpan ToDuration(int value, bool useSeconds)
+        {
+            return useSeconds
+                ? TimeSpan.FromSeconds(value)
+                : TimeSpan.FromMinutes(value);
+        }
+
+        private static string FormatDuration(TimeSpan duration, bool useSeconds)
+        {
+            if (useSeconds)
+            {
+                return $"{(int)duration.TotalSeconds} sec";
+            }
+
+            return $"{(int)duration.TotalMinutes} min";
         }
     }
 }

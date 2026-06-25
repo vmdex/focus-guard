@@ -1,15 +1,16 @@
 namespace FocusGuard.Clock.App.Models;
 
 public sealed record ClockSettings(
-    int TotalDurationMinutes,
-    int FocusPeriodMinutes,
-    int BreakPeriodMinutes,
-    bool SkipBreaks)
+    int TotalDuration,
+    int FocusPeriod,
+    int BreakPeriod,
+    bool SkipBreaks,
+    bool UseSeconds)
 {
     public static ClockSettings Defaults => new(
-        TotalDurationMinutes: 200,
-        FocusPeriodMinutes: 25,
-        BreakPeriodMinutes: 10,
-        SkipBreaks: false);
+        TotalDuration: 200,
+        FocusPeriod: 25,
+        BreakPeriod: 10,
+        SkipBreaks: false,
+        UseSeconds: false);
 }
-

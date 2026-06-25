@@ -65,6 +65,24 @@ public sealed class FocusTimerRunnerTests
     }
 
     [TestMethod]
+    public void Advance_WithSecondDurations_CompletesTimerQuickly()
+    {
+        var plan = _calculator.Calculate(new FocusCycleRequest(
+            TotalDuration: TimeSpan.FromSeconds(30),
+            FocusPeriod: TimeSpan.FromSeconds(20),
+            BreakPeriod: TimeSpan.FromSeconds(5),
+            SkipBreaks: false));
+        var runner = new FocusTimerRunner(plan);
+        runner.Start();
+
+        var events = runner.Advance(TimeSpan.FromSeconds(30));
+
+        Assert.AreEqual(3, events.Count);
+        Assert.AreEqual(FocusTimerStatus.Completed, runner.Snapshot.Status);
+        Assert.AreEqual(TimeSpan.FromSeconds(25), runner.Snapshot.FocusElapsed);
+    }
+
+    [TestMethod]
     public void Pause_PreventsAdvanceUntilResume()
     {
         var runner = CreateRunner(total: 30, focus: 20, breakDuration: 5);
@@ -120,4 +138,3 @@ public sealed class FocusTimerRunnerTests
         return new FocusTimerRunner(plan);
     }
 }
-

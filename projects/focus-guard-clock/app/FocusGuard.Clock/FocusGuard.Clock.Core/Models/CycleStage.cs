@@ -6,12 +6,26 @@ namespace FocusGuard.Clock.Core.Models;
 /// </summary>
 public sealed record CycleStage(
     CycleStageKind Kind,
-    int DurationMinutes,
+    TimeSpan Duration,
     int FocusPeriodNumber,
     int TotalFocusPeriods)
 {
+    public CycleStage(
+        CycleStageKind Kind,
+        int DurationMinutes,
+        int FocusPeriodNumber,
+        int TotalFocusPeriods)
+        : this(
+            Kind,
+            TimeSpan.FromMinutes(DurationMinutes),
+            FocusPeriodNumber,
+            TotalFocusPeriods)
+    {
+    }
+
+    public int DurationMinutes => (int)Duration.TotalMinutes;
+
     public bool IsFocus => Kind == CycleStageKind.Focus;
 
     public bool IsBreak => Kind == CycleStageKind.Break;
 }
-
