@@ -63,6 +63,26 @@
                     LargeChange="10"
                     SpinButtonPlacementMode="Inline" />
 
+                <StackPanel
+                    x:Name="AdvanceControlsPanel"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <NumberBox
+                        x:Name="AdvanceSecondsBox"
+                        Header="Advance seconds"
+                        Width="180"
+                        Minimum="1"
+                        Value="10"
+                        SmallChange="1"
+                        LargeChange="10"
+                        SpinButtonPlacementMode="Inline" />
+                    <Button
+                        x:Name="AdvanceButton"
+                        Content="Advance"
+                        VerticalAlignment="Bottom"
+                        Click="AdvanceButton_Click" />
+                </StackPanel>
+
                 <CheckBox
                     x:Name="SkipBreaksCheckBox"
                     Content="Skip breaks" />

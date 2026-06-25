@@ -172,6 +172,37 @@ namespace FocusGuard.Clock.App
             RenderTimer(_timerRunner.Snapshot);
         }
 
+        private void AdvanceButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_timerRunner is null)
+            {
+                return;
+            }
+
+            if (_timerRunner.Snapshot.Status is not FocusTimerStatus.Running)
+            {
+                DeveloperTimerEventTextBlock.Text = "Start or resume the timer before advancing time.";
+                return;
+            }
+
+            var seconds = ReadWholeNumber(AdvanceSecondsBox);
+            if (seconds <= 0)
+            {
+                DeveloperTimerEventTextBlock.Text = "Advance seconds must be greater than zero.";
+                return;
+            }
+
+            _lastTickAt = DateTimeOffset.Now;
+            var events = _timerRunner.Advance(TimeSpan.FromSeconds(seconds));
+            RenderEvents(events);
+            RenderTimer(_timerRunner.Snapshot);
+
+            if (_timerRunner.Snapshot.Status is FocusTimerStatus.Completed)
+            {
+                _timer.Stop();
+            }
+        }
+
         private void Timer_Tick(object? sender, object e)
         {
             if (_timerRunner is null)
@@ -291,6 +322,7 @@ namespace FocusGuard.Clock.App
             DeveloperResumeButton.IsEnabled = canResume;
             DeveloperResetButton.IsEnabled = canReset;
             DeveloperStopButton.IsEnabled = canStop;
+            AdvanceButton.IsEnabled = hasTimer && status is FocusTimerStatus.Running;
         }
 
         private void RenderEvents(IReadOnlyList<FocusTimerEvent> events)
@@ -364,6 +396,9 @@ namespace FocusGuard.Clock.App
                 ? Visibility.Visible
                 : Visibility.Collapsed;
             UseSecondsCheckBox.Visibility = isDeveloperMode
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            AdvanceControlsPanel.Visibility = isDeveloperMode
                 ? Visibility.Visible
                 : Visibility.Collapsed;
             ModeSubtitleTextBlock.Text = isDeveloperMode
