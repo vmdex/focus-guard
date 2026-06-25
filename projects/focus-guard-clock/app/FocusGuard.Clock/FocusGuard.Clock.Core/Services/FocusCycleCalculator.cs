@@ -19,25 +19,62 @@ public sealed class FocusCycleCalculator
     {
         Validate(request);
 
-        var focusPeriodCount = request.SkipBreaks
-            ? request.TotalDurationMinutes / request.FocusPeriodMinutes
-            : (request.TotalDurationMinutes + request.BreakPeriodMinutes)
-                / (request.FocusPeriodMinutes + request.BreakPeriodMinutes);
+        // First decide how many full focus periods fit into the user's time budget.
+        // v0.1 does not create a shorter "partial" focus period from leftover time.
+        var focusPeriodCount = CalculateFocusPeriodCount(request);
 
-        focusPeriodCount = Math.Max(1, focusPeriodCount);
+        // Breaks are only inserted between focus periods, never after the last one.
+        var breakCount = CalculateBreakCount(request, focusPeriodCount);
 
-        var breakCount = request.SkipBreaks ? 0 : focusPeriodCount - 1;
+        // The UI runner can later execute these stages one by one.
         var stages = BuildStages(request, focusPeriodCount, breakCount);
+
+        // Used duration can be smaller than total duration when the leftover time
+        // is not long enough for another full focus period.
         var usedDuration = stages.Sum(stage => stage.DurationMinutes);
+        var unusedDuration = request.TotalDurationMinutes - usedDuration;
 
         return new FocusCyclePlan(
             request.TotalDurationMinutes,
             usedDuration,
-            request.TotalDurationMinutes - usedDuration,
+            unusedDuration,
             request.FocusPeriodMinutes,
             request.BreakPeriodMinutes,
             request.SkipBreaks,
             stages);
+    }
+
+    private static int CalculateFocusPeriodCount(FocusCycleRequest request)
+    {
+        if (request.SkipBreaks)
+        {
+            return request.TotalDurationMinutes / request.FocusPeriodMinutes;
+        }
+
+        // With breaks enabled, one full pair is:
+        // focus + break.
+        //
+        // The last focus period does not need a break after it, so we add one
+        // break duration to the numerator. This lets the formula count that
+        // final focus period without requiring an extra trailing break.
+        //
+        // Example:
+        // total = 200, focus = 25, break = 10
+        // floor((200 + 10) / (25 + 10)) = 6 focus periods.
+        var fullFocusAndBreakPair = request.FocusPeriodMinutes + request.BreakPeriodMinutes;
+        var budgetAdjustedForFinalFocus = request.TotalDurationMinutes + request.BreakPeriodMinutes;
+
+        return budgetAdjustedForFinalFocus / fullFocusAndBreakPair;
+    }
+
+    private static int CalculateBreakCount(FocusCycleRequest request, int focusPeriodCount)
+    {
+        if (request.SkipBreaks)
+        {
+            return 0;
+        }
+
+        return focusPeriodCount - 1;
     }
 
     private static List<CycleStage> BuildStages(
