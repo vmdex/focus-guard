@@ -30,12 +30,19 @@ namespace FocusGuard.Clock.App
         public MainWindow()
         {
             InitializeComponent();
+            ConfigureTitleBar();
 
             _timer.Interval = TimeSpan.FromSeconds(1);
             _timer.Tick += Timer_Tick;
 
             ApplySettings(_settingsService.Load());
             CalculateAndRenderPlan();
+        }
+
+        private void ConfigureTitleBar()
+        {
+            ExtendsContentIntoTitleBar = true;
+            SetTitleBar(AppTitleBar);
         }
 
         private void FocusSessionNavButton_Click(object sender, RoutedEventArgs e)

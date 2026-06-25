@@ -31,20 +31,26 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <StackPanel
+                <Grid
+                    x:Name="AppTitleBar"
+                    Height="32"
+                    VerticalAlignment="Top"
+                    Background="Transparent">
+                    <StackPanel
                     Orientation="Horizontal"
                     Spacing="12"
                     Padding="8,0">
-                    <SymbolIcon
-                        Symbol="Clock"
-                        Width="20"
-                        Height="20" />
-                    <TextBlock
-                        Text="Focus Guard"
-                        VerticalAlignment="Center"
-                        FontSize="16"
-                        FontWeight="SemiBold" />
-                </StackPanel>
+                        <SymbolIcon
+                            Symbol="Clock"
+                            Width="20"
+                            Height="20" />
+                        <TextBlock
+                            Text="Focus Guard"
+                            VerticalAlignment="Center"
+                            FontSize="16"
+                            FontWeight="SemiBold" />
+                    </StackPanel>
+                </Grid>
 
                 <Button
                     x:Name="FocusSessionNavButton"
