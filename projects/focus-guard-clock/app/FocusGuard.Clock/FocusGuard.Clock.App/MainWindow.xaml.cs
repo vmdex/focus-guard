@@ -1,3 +1,5 @@
+using FocusGuard.Clock.App.Models;
+using FocusGuard.Clock.App.Services;
 using FocusGuard.Clock.Core.Models;
 using FocusGuard.Clock.Core.Services;
 using Microsoft.UI.Xaml;
@@ -16,15 +18,13 @@ namespace FocusGuard.Clock.App
     public sealed partial class MainWindow : Window
     {
         private readonly FocusCycleCalculator _calculator = new();
+        private readonly ClockSettingsService _settingsService = new();
 
         public MainWindow()
         {
             InitializeComponent();
 
-            TotalDurationBox.Value = 200;
-            FocusPeriodBox.Value = 25;
-            BreakPeriodBox.Value = 10;
-            SkipBreaksCheckBox.IsChecked = false;
+            ApplySettings(_settingsService.Load());
 
             CalculateAndRenderPlan();
         }
@@ -38,11 +38,14 @@ namespace FocusGuard.Clock.App
         {
             try
             {
+                var settings = ReadSettingsFromInputs();
+                _settingsService.Save(settings);
+
                 var request = new FocusCycleRequest(
-                    TotalDurationMinutes: ReadWholeMinutes(TotalDurationBox),
-                    FocusPeriodMinutes: ReadWholeMinutes(FocusPeriodBox),
-                    BreakPeriodMinutes: ReadWholeMinutes(BreakPeriodBox),
-                    SkipBreaks: SkipBreaksCheckBox.IsChecked == true);
+                    settings.TotalDurationMinutes,
+                    settings.FocusPeriodMinutes,
+                    settings.BreakPeriodMinutes,
+                    settings.SkipBreaks);
 
                 var plan = _calculator.Calculate(request);
 
@@ -59,6 +62,23 @@ namespace FocusGuard.Clock.App
                 ErrorTextBlock.Visibility = Visibility.Visible;
                 StagesListView.ItemsSource = null;
             }
+        }
+
+        private void ApplySettings(ClockSettings settings)
+        {
+            TotalDurationBox.Value = settings.TotalDurationMinutes;
+            FocusPeriodBox.Value = settings.FocusPeriodMinutes;
+            BreakPeriodBox.Value = settings.BreakPeriodMinutes;
+            SkipBreaksCheckBox.IsChecked = settings.SkipBreaks;
+        }
+
+        private ClockSettings ReadSettingsFromInputs()
+        {
+            return new ClockSettings(
+                TotalDurationMinutes: ReadWholeMinutes(TotalDurationBox),
+                FocusPeriodMinutes: ReadWholeMinutes(FocusPeriodBox),
+                BreakPeriodMinutes: ReadWholeMinutes(BreakPeriodBox),
+                SkipBreaks: SkipBreaksCheckBox.IsChecked == true);
         }
 
         private static int ReadWholeMinutes(NumberBox numberBox)
