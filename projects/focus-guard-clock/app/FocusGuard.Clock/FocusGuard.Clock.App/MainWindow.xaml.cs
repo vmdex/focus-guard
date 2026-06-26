@@ -20,6 +20,7 @@ namespace FocusGuard.Clock.App
     {
         private readonly FocusCycleCalculator _calculator = new();
         private readonly ClockSettingsService _settingsService = new();
+        private readonly NotificationService _notificationService = new();
         private readonly DispatcherTimer _timer = new();
 
         private FocusTimerRunner? _timerRunner;
@@ -304,6 +305,11 @@ namespace FocusGuard.Clock.App
             };
 
             DeveloperTimerEventTextBlock.Text = message;
+
+            foreach (var timerEvent in events)
+            {
+                _notificationService.ShowTimerTransition(timerEvent);
+            }
         }
 
         private static string FormatCurrentStage(CycleStage? stage)
