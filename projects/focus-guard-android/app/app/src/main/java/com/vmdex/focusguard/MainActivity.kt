@@ -318,6 +318,7 @@ private fun DevInfoCard(
             DevInfoRow(label = "Tracked apps", value = TrackedAppPackages.size.toString())
             DevInfoRow(label = "Session strategy", value = "Grace period")
             DevInfoRow(label = "Grace period", value = formatElapsed(DefaultGracePeriodMillis))
+            DevInfoRow(label = "Session limit", value = formatElapsed(DefaultSessionLimitMillis))
             Text(
                 text = TrackedAppPackages.joinToString(separator = "\n"),
                 style = MaterialTheme.typography.bodySmall,
@@ -377,17 +378,16 @@ private fun CurrentSessionRows(
 ) {
     when (foregroundAppState) {
         is ForegroundAppState.Detected -> {
-            val elapsedMillis = when {
-                foregroundAppState.sessionStatus == SessionStatus.Ended &&
-                    foregroundAppState.interruptionStartedAtMillis != null ->
-                    foregroundAppState.interruptionStartedAtMillis - foregroundAppState.timestampMillis
-
-                else -> currentTimeMillis - foregroundAppState.timestampMillis
-            }
+            val elapsedMillis = calculateSessionElapsedMillis(
+                foregroundAppState = foregroundAppState,
+                currentTimeMillis = currentTimeMillis
+            )
+            val isLimitExceeded = elapsedMillis >= DefaultSessionLimitMillis
 
             DevInfoRow(label = "Session app", value = foregroundAppState.packageName)
             DevInfoRow(label = "Session started", value = formatTimestamp(foregroundAppState.timestampMillis))
             DevInfoRow(label = "Session elapsed", value = formatElapsed(elapsedMillis))
+            DevInfoRow(label = "Limit status", value = if (isLimitExceeded) "Exceeded" else "Within limit")
 
             if (foregroundAppState.sessionStatus == SessionStatus.GracePeriod &&
                 foregroundAppState.interruptionStartedAtMillis != null
@@ -402,6 +402,7 @@ private fun CurrentSessionRows(
         else -> {
             DevInfoRow(label = "Session app", value = "-")
             DevInfoRow(label = "Session elapsed", value = "00:00")
+            DevInfoRow(label = "Limit status", value = "-")
         }
     }
 }
@@ -441,6 +442,19 @@ private fun sessionStatusLabel(sessionStatus: SessionStatus): String {
     }
 }
 
+private fun calculateSessionElapsedMillis(
+    foregroundAppState: ForegroundAppState.Detected,
+    currentTimeMillis: Long
+): Long {
+    return when {
+        foregroundAppState.sessionStatus == SessionStatus.Ended &&
+            foregroundAppState.interruptionStartedAtMillis != null ->
+            foregroundAppState.interruptionStartedAtMillis - foregroundAppState.timestampMillis
+
+        else -> currentTimeMillis - foregroundAppState.timestampMillis
+    }
+}
+
 private fun formatTimestamp(timestampMillis: Long): String {
     return Instant.ofEpochMilli(timestampMillis)
         .atZone(ZoneId.systemDefault())
@@ -471,6 +485,7 @@ private fun UsageAccessScreenPreview() {
 
 private const val UsageLookupWindowMillis = 10 * 60 * 1000L
 private const val DefaultGracePeriodMillis = 15 * 1000L
+private const val DefaultSessionLimitMillis = 30 * 1000L
 
 private val TrackedAppPackages = setOf(
     "com.google.android.youtube",
