@@ -43,29 +43,30 @@
             </NavigationView.PaneHeader>
 
             <Grid>
-            <Grid
+            <ScrollViewer
                 x:Name="FocusSessionPage"
                 Padding="32">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="24" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="24" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                <StackPanel Spacing="8">
-                    <TextBlock
-                        Text="Focus Guard Clock"
-                        FontSize="28"
-                        FontWeight="SemiBold" />
-                    <TextBlock
-                        Text="Developer timer prototype"
-                        FontSize="14"
-                        Opacity="0.72" />
-                </StackPanel>
+                    <StackPanel Spacing="8">
+                        <TextBlock
+                            Text="Focus Guard Clock"
+                            FontSize="28"
+                            FontWeight="SemiBold" />
+                        <TextBlock
+                            Text="Developer timer prototype"
+                            FontSize="14"
+                            Opacity="0.72" />
+                    </StackPanel>
 
-                <Grid
-                    Grid.Row="2"
-                    RowSpacing="16">
+                    <Grid
+                        Grid.Row="2"
+                        RowSpacing="16">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -165,6 +166,8 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
                                 <Grid ColumnSpacing="16">
@@ -226,8 +229,37 @@
                                     </StackPanel>
                                 </Grid>
 
-                                <StackPanel
+                                <Grid
                                     Grid.Row="2"
+                                    ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="220" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock
+                                        Text="Total duration (min)"
+                                        VerticalAlignment="Center" />
+
+                                    <NumberBox
+                                        x:Name="TotalDurationBox"
+                                        Grid.Column="1"
+                                        Minimum="1"
+                                        SmallChange="15"
+                                        LargeChange="15"
+                                        SpinButtonPlacementMode="Inline"
+                                        ValueChanged="SettingsNumberBox_ValueChanged" />
+                                </Grid>
+
+                                <CheckBox
+                                    Grid.Row="3"
+                                    x:Name="SkipBreaksCheckBox"
+                                    Content="Skip breaks"
+                                    Checked="SettingsInput_Changed"
+                                    Unchecked="SettingsInput_Changed" />
+
+                                <StackPanel
+                                    Grid.Row="4"
                                     Orientation="Horizontal"
                                     Spacing="8">
                                     <Button
@@ -267,45 +299,39 @@
                                     FontSize="18"
                                     FontWeight="SemiBold" />
 
-                                <NumberBox
-                                    x:Name="TotalDurationBox"
-                                    Header="Total duration (minutes)"
-                                    Minimum="1"
-                                    SmallChange="5"
-                                    LargeChange="25"
-                                    SpinButtonPlacementMode="Inline"
-                                    ValueChanged="SettingsNumberBox_ValueChanged" />
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
 
-                                <CheckBox
-                                    x:Name="SkipBreaksCheckBox"
-                                    Content="Skip breaks"
-                                    Checked="SettingsInput_Changed"
-                                    Unchecked="SettingsInput_Changed" />
+                                    <TextBlock
+                                        Text="Advance seconds"
+                                        VerticalAlignment="Center" />
 
-                                <StackPanel
-                                    Orientation="Horizontal"
-                                    Spacing="8">
-                                    <NumberBox
-                                        x:Name="AdvanceSecondsBox"
-                                        Header="Advance seconds"
-                                        Width="180"
-                                        Minimum="1"
-                                        Value="10"
-                                        SmallChange="1"
-                                        LargeChange="10"
-                                        SpinButtonPlacementMode="Inline" />
-                                    <Button
-                                        x:Name="AdvanceButton"
-                                        Content="Advance"
-                                        VerticalAlignment="Bottom"
-                                        Click="AdvanceButton_Click" />
-                                </StackPanel>
+                                    <StackPanel
+                                        Grid.Column="1"
+                                        Orientation="Horizontal"
+                                        Spacing="8">
+                                        <NumberBox
+                                            x:Name="AdvanceSecondsBox"
+                                            Width="180"
+                                            Minimum="1"
+                                            Value="10"
+                                            SmallChange="1"
+                                            LargeChange="10"
+                                            SpinButtonPlacementMode="Inline" />
+                                        <Button
+                                            x:Name="AdvanceButton"
+                                            Content="Advance"
+                                            Click="AdvanceButton_Click" />
+                                    </StackPanel>
+                                </Grid>
 
                                 <StackPanel Spacing="8">
                                     <TextBlock
                                         Text="Notifications"
-                                        FontSize="16"
-                                        FontWeight="SemiBold" />
+                                        FontSize="16" />
 
                                     <StackPanel
                                         Orientation="Horizontal"
@@ -338,8 +364,9 @@
                                     Margin="0,0,0,8" />
                             </ListView.Header>
                         </ListView>
-                    </Grid>
                 </Grid>
+                </Grid>
+            </ScrollViewer>
 
             <ScrollViewer
                 x:Name="SettingsPage"
