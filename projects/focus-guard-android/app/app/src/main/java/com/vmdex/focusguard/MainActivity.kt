@@ -1,16 +1,23 @@
 package com.vmdex.focusguard
 
+import android.Manifest
 import android.app.AppOpsManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Process
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,10 +54,14 @@ class MainActivity : ComponentActivity() {
     private var hasUsageAccess by mutableStateOf(false)
     private var foregroundAppState by mutableStateOf<ForegroundAppState>(ForegroundAppState.Unknown)
     private var currentTimeMillis by mutableStateOf(System.currentTimeMillis())
+    private var alertState by mutableStateOf(AlertState())
+    private var alertedSessionKey: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        createNotificationChannel()
+        requestNotificationPermissionIfNeeded()
         refreshUsageData()
 
         setContent {
@@ -60,6 +71,7 @@ class MainActivity : ComponentActivity() {
                         hasUsageAccess = hasUsageAccess,
                         foregroundAppState = foregroundAppState,
                         currentTimeMillis = currentTimeMillis,
+                        alertState = alertState,
                         packageName = packageName,
                         onRefreshUsageData = ::refreshUsageData,
                         modifier = Modifier.padding(innerPadding)
@@ -82,8 +94,92 @@ class MainActivity : ComponentActivity() {
         } else {
             ForegroundAppState.PermissionMissing
         }
+        maybeShowLimitExceededNotification()
+    }
+
+    private fun maybeShowLimitExceededNotification() {
+        val detected = foregroundAppState as? ForegroundAppState.Detected ?: return
+        if (detected.sessionStatus == SessionStatus.Ended) {
+            return
+        }
+
+        val elapsedMillis = calculateSessionElapsedMillis(detected, currentTimeMillis)
+        if (elapsedMillis < DefaultSessionLimitMillis) {
+            return
+        }
+
+        val sessionKey = "${detected.packageName}:${detected.timestampMillis}"
+        if (alertedSessionKey == sessionKey) {
+            return
+        }
+
+        showLimitExceededNotification(detected.packageName, elapsedMillis)
+        alertedSessionKey = sessionKey
+        alertState = AlertState(
+            wasSent = true,
+            lastAlertTimeMillis = currentTimeMillis,
+            lastAlertPackageName = detected.packageName
+        )
+    }
+
+    private fun showLimitExceededNotification(packageName: String, elapsedMillis: Long) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            alertState = alertState.copy(wasSent = false)
+            return
+        }
+
+        val notification = NotificationCompat.Builder(this, LimitNotificationChannelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("Focus Guard")
+            .setContentText("$packageName has been open for ${formatElapsed(elapsedMillis)}")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(this).notify(LimitNotificationId, notification)
+        } catch (_: SecurityException) {
+            alertState = alertState.copy(wasSent = false)
+        }
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return
+        }
+
+        val channel = NotificationChannel(
+            LimitNotificationChannelId,
+            "Focus Guard alerts",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Alerts when a tracked app session exceeds its limit."
+        }
+
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        notificationManager.createNotificationChannel(channel)
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return
+        }
+
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            return
+        }
+
+        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NotificationPermissionRequestCode)
     }
 }
+
+private data class AlertState(
+    val wasSent: Boolean = false,
+    val lastAlertTimeMillis: Long? = null,
+    val lastAlertPackageName: String? = null
+)
 
 private sealed interface ForegroundAppState {
     data object Unknown : ForegroundAppState
@@ -187,6 +283,7 @@ private fun UsageAccessScreen(
     hasUsageAccess: Boolean,
     foregroundAppState: ForegroundAppState,
     currentTimeMillis: Long,
+    alertState: AlertState,
     packageName: String,
     onRefreshUsageData: () -> Unit,
     modifier: Modifier = Modifier
@@ -234,6 +331,7 @@ private fun UsageAccessScreen(
                 hasUsageAccess = hasUsageAccess,
                 foregroundAppState = foregroundAppState,
                 currentTimeMillis = currentTimeMillis,
+                alertState = alertState,
                 onRefreshUsageData = onRefreshUsageData
             )
         }
@@ -299,6 +397,7 @@ private fun DevInfoCard(
     hasUsageAccess: Boolean,
     foregroundAppState: ForegroundAppState,
     currentTimeMillis: Long,
+    alertState: AlertState,
     onRefreshUsageData: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -329,6 +428,7 @@ private fun DevInfoCard(
                 foregroundAppState = foregroundAppState,
                 currentTimeMillis = currentTimeMillis
             )
+            AlertRows(alertState)
 
             Button(
                 onClick = onRefreshUsageData,
@@ -346,6 +446,16 @@ private fun DevInfoCard(
             )
         }
     }
+}
+
+@Composable
+private fun AlertRows(alertState: AlertState) {
+    DevInfoRow(label = "Alert sent", value = alertState.wasSent.toString())
+    DevInfoRow(label = "Last alert app", value = alertState.lastAlertPackageName ?: "-")
+    DevInfoRow(
+        label = "Last alert time",
+        value = alertState.lastAlertTimeMillis?.let(::formatTimestamp) ?: "-"
+    )
 }
 
 @Composable
@@ -477,6 +587,7 @@ private fun UsageAccessScreenPreview() {
             hasUsageAccess = false,
             foregroundAppState = ForegroundAppState.PermissionMissing,
             currentTimeMillis = System.currentTimeMillis(),
+            alertState = AlertState(),
             packageName = "com.vmdex.focusguard",
             onRefreshUsageData = {}
         )
@@ -486,6 +597,9 @@ private fun UsageAccessScreenPreview() {
 private const val UsageLookupWindowMillis = 10 * 60 * 1000L
 private const val DefaultGracePeriodMillis = 15 * 1000L
 private const val DefaultSessionLimitMillis = 30 * 1000L
+private const val LimitNotificationChannelId = "focus_guard_limit_alerts"
+private const val LimitNotificationId = 1001
+private const val NotificationPermissionRequestCode = 2001
 
 private val TrackedAppPackages = setOf(
     "com.google.android.youtube",
