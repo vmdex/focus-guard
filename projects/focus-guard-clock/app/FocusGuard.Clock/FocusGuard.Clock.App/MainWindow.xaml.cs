@@ -358,6 +358,10 @@ namespace FocusGuard.Clock.App
             DeveloperPauseButton.IsEnabled = canPause;
             DeveloperResumeButton.IsEnabled = canResume;
             DeveloperResetButton.IsEnabled = canReset;
+            DeveloperStartButton.Visibility = canStart ? Visibility.Visible : Visibility.Collapsed;
+            DeveloperPauseButton.Visibility = canPause ? Visibility.Visible : Visibility.Collapsed;
+            DeveloperResumeButton.Visibility = canResume ? Visibility.Visible : Visibility.Collapsed;
+            DeveloperResetButton.Visibility = canReset ? Visibility.Visible : Visibility.Collapsed;
             AdvanceButton.IsEnabled = hasTimer && status is FocusTimerStatus.Running;
         }
 
