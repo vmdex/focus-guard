@@ -434,7 +434,9 @@
                                 <SymbolIcon
                                     Symbol="Clock"
                                     Width="24"
-                                    Height="24" />
+                                    Height="24"
+                                    VerticalAlignment="Top"
+                                    Margin="0,4,0,0" />
 
                                 <StackPanel
                                     Grid.Column="1"
@@ -449,30 +451,53 @@
                                             Opacity="0.72" />
                                     </StackPanel>
 
-                                    <Grid ColumnSpacing="16">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
+                                    <Grid RowSpacing="12">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
 
-                                        <NumberBox
-                                            x:Name="FocusPeriodBox"
-                                            Header="Focus period (minutes)"
-                                            Minimum="1"
-                                            SmallChange="5"
-                                            LargeChange="25"
-                                            SpinButtonPlacementMode="Inline"
-                                            ValueChanged="SettingsNumberBox_ValueChanged" />
+                                        <Grid ColumnSpacing="16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="220" />
+                                            </Grid.ColumnDefinitions>
 
-                                        <NumberBox
-                                            x:Name="BreakPeriodBox"
-                                            Grid.Column="1"
-                                            Header="Break period (minutes)"
-                                            Minimum="1"
-                                            SmallChange="5"
-                                            LargeChange="10"
-                                            SpinButtonPlacementMode="Inline"
-                                            ValueChanged="SettingsNumberBox_ValueChanged" />
+                                            <TextBlock
+                                                Text="Focus period (minutes)"
+                                                VerticalAlignment="Center" />
+
+                                            <NumberBox
+                                                x:Name="FocusPeriodBox"
+                                                Grid.Column="1"
+                                                Minimum="1"
+                                                SmallChange="5"
+                                                LargeChange="25"
+                                                SpinButtonPlacementMode="Inline"
+                                                ValueChanged="SettingsNumberBox_ValueChanged" />
+                                        </Grid>
+
+                                        <Grid
+                                            Grid.Row="1"
+                                            ColumnSpacing="16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="220" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock
+                                                Text="Break period (minutes)"
+                                                VerticalAlignment="Center" />
+
+                                            <NumberBox
+                                                x:Name="BreakPeriodBox"
+                                                Grid.Column="1"
+                                                Minimum="1"
+                                                SmallChange="5"
+                                                LargeChange="10"
+                                                SpinButtonPlacementMode="Inline"
+                                                ValueChanged="SettingsNumberBox_ValueChanged" />
+                                        </Grid>
                                     </Grid>
                                 </StackPanel>
                             </Grid>
@@ -500,7 +525,9 @@
                                 <SymbolIcon
                                     Symbol="Message"
                                     Width="24"
-                                    Height="24" />
+                                    Height="24"
+                                    VerticalAlignment="Top"
+                                    Margin="0,4,0,0" />
 
                                 <StackPanel
                                     Grid.Column="1"
@@ -515,15 +542,66 @@
                                             Opacity="0.72" />
                                     </StackPanel>
 
-                                    <ToggleSwitch
-                                        x:Name="ShowNotificationsToggleSwitch"
-                                        Header="Show notifications"
-                                        Toggled="SettingsInput_Changed" />
+                                    <Grid RowSpacing="12">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
 
-                                    <ToggleSwitch
-                                        x:Name="PlayNotificationSoundToggleSwitch"
-                                        Header="Play notification sound"
-                                        Toggled="SettingsInput_Changed" />
+                                        <Grid ColumnSpacing="16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock
+                                                Text="Show notifications"
+                                                VerticalAlignment="Center" />
+
+                                            <TextBlock
+                                                x:Name="ShowNotificationsStateTextBlock"
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center" />
+
+                                            <ToggleSwitch
+                                                x:Name="ShowNotificationsToggleSwitch"
+                                                Grid.Column="2"
+                                                MinWidth="0"
+                                                Width="48"
+                                                OnContent=""
+                                                OffContent=""
+                                                Toggled="SettingsInput_Changed" />
+                                        </Grid>
+
+                                        <Grid
+                                            Grid.Row="1"
+                                            ColumnSpacing="16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock
+                                                Text="Play notification sound"
+                                                VerticalAlignment="Center" />
+
+                                            <TextBlock
+                                                x:Name="PlayNotificationSoundStateTextBlock"
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center" />
+
+                                            <ToggleSwitch
+                                                x:Name="PlayNotificationSoundToggleSwitch"
+                                                Grid.Column="2"
+                                                MinWidth="0"
+                                                Width="48"
+                                                OnContent=""
+                                                OffContent=""
+                                                Toggled="SettingsInput_Changed" />
+                                        </Grid>
+                                    </Grid>
                                 </StackPanel>
                             </Grid>
                         </Border>

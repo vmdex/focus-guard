@@ -385,10 +385,18 @@ namespace FocusGuard.Clock.App
         private void ApplyNotificationSettings(ClockSettings settings)
         {
             PlayNotificationSoundToggleSwitch.IsEnabled = settings.ShowNotifications;
+            PlayNotificationSoundStateTextBlock.Opacity = settings.ShowNotifications ? 1 : 0.56;
             TestBreakNotificationButton.IsEnabled = settings.ShowNotifications;
             TestFocusNotificationButton.IsEnabled = settings.ShowNotifications;
             TestFinishedNotificationButton.IsEnabled = settings.ShowNotifications;
+            ShowNotificationsStateTextBlock.Text = FormatToggleState(settings.ShowNotifications);
+            PlayNotificationSoundStateTextBlock.Text = FormatToggleState(settings.PlayNotificationSound);
             _notificationService.IsSoundEnabled = settings.ShowNotifications && settings.PlayNotificationSound;
+        }
+
+        private static string FormatToggleState(bool isOn)
+        {
+            return isOn ? "On" : "Off";
         }
 
         private void ShowFocusSessionPage()
