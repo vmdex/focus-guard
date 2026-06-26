@@ -18,7 +18,9 @@ class MainActivity : ComponentActivity() {
     private var currentTimeMillis by mutableStateOf(System.currentTimeMillis())
     private var alertState by mutableStateOf(AlertState())
     private var settings by mutableStateOf(FocusGuardSettings())
+    private var effectiveSettings by mutableStateOf(FocusGuardSettings())
     private var alertedSessionKey: String? = null
+    private var pendingSettingsChangedAtMillis: Long? = null
     private lateinit var notifier: FocusGuardNotifier
     private lateinit var settingsStore: FocusGuardSettingsStore
 
@@ -28,6 +30,7 @@ class MainActivity : ComponentActivity() {
 
         settingsStore = FocusGuardSettingsStore(this)
         settings = settingsStore.load()
+        effectiveSettings = settings
         notifier = FocusGuardNotifier(this)
         notifier.createLimitChannel()
         requestNotificationPermissionIfNeeded()
@@ -41,6 +44,8 @@ class MainActivity : ComponentActivity() {
                     currentTimeMillis = currentTimeMillis,
                     alertState = alertState,
                     settings = settings,
+                    effectiveSettings = effectiveSettings,
+                    hasPendingSettings = settings != effectiveSettings,
                     packageName = packageName,
                     onRefreshUsageData = ::refreshUsageData,
                     onSettingsChanged = ::applySettings
@@ -59,11 +64,12 @@ class MainActivity : ComponentActivity() {
         currentTimeMillis = System.currentTimeMillis()
         hasUsageAccess = hasUsageAccessPermission(this)
         foregroundAppState = if (hasUsageAccess) {
-            readLatestForegroundApp(this, settings.gracePeriodMillis)
+            readLatestForegroundApp(this, effectiveSettings.gracePeriodMillis)
         } else {
             ForegroundAppState.PermissionMissing
         }
 
+        applyPendingSettingsIfReady()
         maybeShowLimitExceededNotification()
     }
 
@@ -75,7 +81,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val elapsedMillis = calculateSessionElapsedMillis(detected, currentTimeMillis)
-        if (elapsedMillis < settings.sessionLimitMillis) {
+        if (elapsedMillis < effectiveSettings.sessionLimitMillis) {
             return
         }
 
@@ -96,7 +102,38 @@ class MainActivity : ComponentActivity() {
     private fun applySettings(newSettings: FocusGuardSettings) {
         settings = newSettings
         settingsStore.save(newSettings)
+        if (!isSessionInProgress(foregroundAppState)) {
+            effectiveSettings = newSettings
+            pendingSettingsChangedAtMillis = null
+        } else {
+            pendingSettingsChangedAtMillis = currentTimeMillis
+        }
         refreshUsageData()
+    }
+
+    private fun applyPendingSettingsIfReady() {
+        if (settings == effectiveSettings) {
+            return
+        }
+
+        val pendingSince = pendingSettingsChangedAtMillis
+        val detected = foregroundAppState as? ForegroundAppState.Detected
+        val hasReEnteredTrackedApp = pendingSince != null &&
+            detected != null &&
+            detected.timestampMillis >= pendingSince
+
+        if (isSessionInProgress(foregroundAppState) && !hasReEnteredTrackedApp) {
+            return
+        }
+
+        // Pending settings become effective after the current session ends or after a new tracked-app entry.
+        effectiveSettings = settings
+        pendingSettingsChangedAtMillis = null
+        foregroundAppState = if (hasUsageAccess) {
+            readLatestForegroundApp(this, effectiveSettings.gracePeriodMillis)
+        } else {
+            foregroundAppState
+        }
     }
 
     private fun requestNotificationPermissionIfNeeded() {

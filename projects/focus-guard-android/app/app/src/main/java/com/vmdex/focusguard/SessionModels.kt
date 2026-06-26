@@ -30,6 +30,13 @@ enum class SessionStatus {
     Ended
 }
 
+fun isSessionInProgress(foregroundAppState: ForegroundAppState): Boolean {
+    val detected = foregroundAppState as? ForegroundAppState.Detected ?: return false
+
+    return detected.sessionStatus == SessionStatus.Active ||
+        detected.sessionStatus == SessionStatus.GracePeriod
+}
+
 fun calculateSessionElapsedMillis(
     foregroundAppState: ForegroundAppState.Detected,
     currentTimeMillis: Long

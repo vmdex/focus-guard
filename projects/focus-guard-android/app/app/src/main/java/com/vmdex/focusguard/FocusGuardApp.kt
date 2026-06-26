@@ -38,6 +38,8 @@ fun FocusGuardApp(
     currentTimeMillis: Long,
     alertState: AlertState,
     settings: FocusGuardSettings,
+    effectiveSettings: FocusGuardSettings,
+    hasPendingSettings: Boolean,
     packageName: String,
     onRefreshUsageData: () -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit
@@ -49,6 +51,8 @@ fun FocusGuardApp(
             currentTimeMillis = currentTimeMillis,
             alertState = alertState,
             settings = settings,
+            effectiveSettings = effectiveSettings,
+            hasPendingSettings = hasPendingSettings,
             packageName = packageName,
             onRefreshUsageData = onRefreshUsageData,
             onSettingsChanged = onSettingsChanged,
@@ -64,6 +68,8 @@ private fun UsageAccessScreen(
     currentTimeMillis: Long,
     alertState: AlertState,
     settings: FocusGuardSettings,
+    effectiveSettings: FocusGuardSettings,
+    hasPendingSettings: Boolean,
     packageName: String,
     onRefreshUsageData: () -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit,
@@ -120,6 +126,8 @@ private fun UsageAccessScreen(
                 currentTimeMillis = currentTimeMillis,
                 alertState = alertState,
                 settings = settings,
+                effectiveSettings = effectiveSettings,
+                hasPendingSettings = hasPendingSettings,
                 onRefreshUsageData = onRefreshUsageData
             )
         }
@@ -209,7 +217,7 @@ private fun DevSettingsCard(
             )
 
             Text(
-                text = "Saved locally. Use small values here to test grace period and alert behavior quickly.",
+                text = "Saved locally. Active sessions keep their original settings; changes apply to the next session.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -245,6 +253,8 @@ private fun DevInfoCard(
     currentTimeMillis: Long,
     alertState: AlertState,
     settings: FocusGuardSettings,
+    effectiveSettings: FocusGuardSettings,
+    hasPendingSettings: Boolean,
     onRefreshUsageData: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -263,8 +273,9 @@ private fun DevInfoCard(
             DevInfoRow(label = "Own package ignored", value = "true")
             DevInfoRow(label = "Tracked apps", value = TrackedAppPackages.size.toString())
             DevInfoRow(label = "Session strategy", value = "Grace period")
-            DevInfoRow(label = "Grace period", value = formatElapsed(settings.gracePeriodMillis))
-            DevInfoRow(label = "Session limit", value = formatElapsed(settings.sessionLimitMillis))
+            DevInfoRow(label = "Pending settings", value = hasPendingSettings.toString())
+            DevInfoRow(label = "Grace period", value = formatElapsed(effectiveSettings.gracePeriodMillis))
+            DevInfoRow(label = "Session limit", value = formatElapsed(effectiveSettings.sessionLimitMillis))
             Text(
                 text = TrackedAppPackages.joinToString(separator = "\n"),
                 style = MaterialTheme.typography.bodySmall,
@@ -274,7 +285,7 @@ private fun DevInfoCard(
             CurrentSessionRows(
                 foregroundAppState = foregroundAppState,
                 currentTimeMillis = currentTimeMillis,
-                settings = settings
+                settings = effectiveSettings
             )
             AlertRows(alertState)
 
@@ -411,6 +422,8 @@ private fun UsageAccessScreenPreview() {
             currentTimeMillis = System.currentTimeMillis(),
             alertState = AlertState(),
             settings = FocusGuardSettings(),
+            effectiveSettings = FocusGuardSettings(),
+            hasPendingSettings = false,
             packageName = "com.vmdex.focusguard",
             onRefreshUsageData = {},
             onSettingsChanged = {}
