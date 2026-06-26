@@ -21,6 +21,8 @@ public sealed class NotificationService
     private readonly object _soundLock = new();
     private bool _isSoundPlaying;
 
+    public event EventHandler? NotificationActivated;
+
     public bool IsSoundEnabled { get; set; } = true;
 
     public void ShowTimerTransition(FocusTimerEvent timerEvent)
@@ -75,7 +77,11 @@ public sealed class NotificationService
         var toast = new ToastNotification(toastXml);
         toast.ExpirationTime = DateTimeOffset.Now.AddSeconds(2);
         toast.Dismissed += (_, _) => StopCurrentSound();
-        toast.Activated += (_, _) => StopCurrentSound();
+        toast.Activated += (_, _) =>
+        {
+            StopCurrentSound();
+            NotificationActivated?.Invoke(this, EventArgs.Empty);
+        };
         toast.Failed += (_, _) => StopCurrentSound();
 
         PlayNotificationSound();

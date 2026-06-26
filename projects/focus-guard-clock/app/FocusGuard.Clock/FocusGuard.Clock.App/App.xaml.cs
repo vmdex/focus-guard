@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.UI.Xaml.Shapes;
+using Microsoft.Windows.AppLifecycle;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,6 +16,7 @@ using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
+using AppLifecycleInstance = Microsoft.Windows.AppLifecycle.AppInstance;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -26,7 +28,9 @@ namespace FocusGuard.Clock.App
     /// </summary>
     public partial class App : Application
     {
-        private Window? _window;
+        private const string SingleInstanceKey = "FocusGuard.Clock.App";
+
+        private MainWindow? _window;
 
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
@@ -41,10 +45,25 @@ namespace FocusGuard.Clock.App
         /// Invoked when the application is launched.
         /// </summary>
         /// <param name="args">Details about the launch request and process.</param>
-        protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+        protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
+            var mainInstance = AppLifecycleInstance.FindOrRegisterForKey(SingleInstanceKey);
+            if (!mainInstance.IsCurrent)
+            {
+                var currentInstance = AppLifecycleInstance.GetCurrent();
+                await mainInstance.RedirectActivationToAsync(currentInstance.GetActivatedEventArgs());
+                Environment.Exit(0);
+                return;
+            }
+
+            mainInstance.Activated += MainInstance_Activated;
             _window = new MainWindow();
             _window.Activate();
+        }
+
+        private void MainInstance_Activated(object? sender, AppActivationArguments args)
+        {
+            _window?.DispatcherQueue.TryEnqueue(() => _window.RestoreFromBackground());
         }
     }
 }

@@ -2,11 +2,14 @@ using FocusGuard.Clock.App.Models;
 using FocusGuard.Clock.App.Services;
 using FocusGuard.Clock.Core.Models;
 using FocusGuard.Clock.Core.Services;
+using Microsoft.UI;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using WinRT.Interop;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -23,6 +26,7 @@ namespace FocusGuard.Clock.App
         private readonly NotificationService _notificationService = new();
         private readonly DispatcherTimer _timer = new();
 
+        private AppWindow? _appWindow;
         private FocusTimerRunner? _timerRunner;
         private ClockSettings _currentSettings = ClockSettings.Defaults;
         private bool _isApplyingSettings;
@@ -32,7 +36,9 @@ namespace FocusGuard.Clock.App
         {
             InitializeComponent();
             ConfigureTitleBar();
+            ConfigureBackgroundClose();
             RootNavigationView.SelectedItem = FocusSessionNavigationItem;
+            _notificationService.NotificationActivated += NotificationService_NotificationActivated;
 
             _timer.Interval = TimeSpan.FromSeconds(1);
             _timer.Tick += Timer_Tick;
@@ -45,6 +51,36 @@ namespace FocusGuard.Clock.App
         {
             ExtendsContentIntoTitleBar = true;
             SetTitleBar(WindowDragArea);
+        }
+
+        private void ConfigureBackgroundClose()
+        {
+            var windowHandle = WindowNative.GetWindowHandle(this);
+            var windowId = Win32Interop.GetWindowIdFromWindow(windowHandle);
+            _appWindow = AppWindow.GetFromWindowId(windowId);
+            _appWindow.Closing += AppWindow_Closing;
+        }
+
+        private void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
+        {
+            if (!IsTimerInProgress())
+            {
+                return;
+            }
+
+            args.Cancel = true;
+            sender.Hide();
+        }
+
+        private void NotificationService_NotificationActivated(object? sender, EventArgs e)
+        {
+            DispatcherQueue.TryEnqueue(RestoreFromBackground);
+        }
+
+        public void RestoreFromBackground()
+        {
+            _appWindow?.Show();
+            Activate();
         }
 
         private void RootNavigationView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
