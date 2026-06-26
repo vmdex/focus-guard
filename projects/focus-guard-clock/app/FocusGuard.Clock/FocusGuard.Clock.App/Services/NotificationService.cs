@@ -1,5 +1,7 @@
 using FocusGuard.Clock.Core.Models;
 using System;
+using System.IO;
+using System.Runtime.InteropServices;
 using System.Security;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
@@ -12,6 +14,13 @@ namespace FocusGuard.Clock.App.Services;
 /// </summary>
 public sealed class NotificationService
 {
+    private const string NotificationSoundPath = @"C:\Windows\Media\Ring02.wav";
+    private const int SoundAsync = 0x0001;
+    private const int SoundFileName = 0x00020000;
+
+    private readonly object _soundLock = new();
+    private bool _isSoundPlaying;
+
     public void ShowTimerTransition(FocusTimerEvent timerEvent)
     {
         var message = timerEvent.Kind switch
@@ -47,7 +56,7 @@ public sealed class NotificationService
         ShowToast("Finished focus session");
     }
 
-    private static void ShowToast(string message)
+    private void ShowToast(string message)
     {
         var toastXml = new XmlDocument();
         toastXml.LoadXml($"""
@@ -62,8 +71,49 @@ public sealed class NotificationService
 
         var toast = new ToastNotification(toastXml);
         toast.ExpirationTime = DateTimeOffset.Now.AddSeconds(2);
+        toast.Dismissed += (_, _) => StopCurrentSound();
+        toast.Activated += (_, _) => StopCurrentSound();
+        toast.Failed += (_, _) => StopCurrentSound();
+
+        PlayNotificationSound();
         ToastNotificationManager.CreateToastNotifier().Show(toast);
     }
+
+    private void PlayNotificationSound()
+    {
+        if (!File.Exists(NotificationSoundPath))
+        {
+            return;
+        }
+
+        lock (_soundLock)
+        {
+            StopCurrentSoundCore();
+            _isSoundPlaying = PlaySound(NotificationSoundPath, IntPtr.Zero, SoundAsync | SoundFileName);
+        }
+    }
+
+    private void StopCurrentSound()
+    {
+        lock (_soundLock)
+        {
+            StopCurrentSoundCore();
+        }
+    }
+
+    private void StopCurrentSoundCore()
+    {
+        if (!_isSoundPlaying)
+        {
+            return;
+        }
+
+        PlaySound(null, IntPtr.Zero, SoundAsync);
+        _isSoundPlaying = false;
+    }
+
+    [DllImport("winmm.dll", SetLastError = true)]
+    private static extern bool PlaySound(string? pszSound, IntPtr hmod, int fdwSound);
 
     private static string FormatMinutes(TimeSpan duration)
     {
