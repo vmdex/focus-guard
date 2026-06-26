@@ -77,6 +77,8 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -161,7 +163,7 @@
 
                         <TextBlock
                             x:Name="ErrorTextBlock"
-                            Grid.Row="4"
+                            Grid.Row="6"
                             Grid.Column="0"
                             Grid.ColumnSpan="2"
                             Foreground="{ThemeResource SystemFillColorCriticalBrush}"
@@ -329,8 +331,99 @@
                         </Border>
 
                         <Border
-                            x:Name="DevToolsCard"
+                            x:Name="DailyProgressCard"
                             Grid.Row="2"
+                            Grid.Column="0"
+                            Grid.ColumnSpan="2"
+                            Padding="16"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <Grid RowSpacing="18">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock
+                                        Text="Daily progress"
+                                        FontSize="18"
+                                        FontWeight="SemiBold" />
+
+                                    <Button
+                                        x:Name="EditDailyGoalButton"
+                                        Grid.Column="1"
+                                        Width="36"
+                                        Height="36"
+                                        Padding="0"
+                                        Click="EditDailyGoalButton_Click">
+                                        <SymbolIcon Symbol="Edit" />
+                                    </Button>
+                                </Grid>
+
+                                <StackPanel
+                                    Grid.Row="1"
+                                    HorizontalAlignment="Center"
+                                    Spacing="4">
+                                    <TextBlock
+                                        Text="Daily goal"
+                                        HorizontalAlignment="Center"
+                                        Opacity="0.72" />
+                                    <TextBlock
+                                        x:Name="DailyGoalTextBlock"
+                                        HorizontalAlignment="Center"
+                                        FontSize="32"
+                                        FontWeight="SemiBold" />
+                                </StackPanel>
+
+                                <ProgressBar
+                                    x:Name="DailyProgressBar"
+                                    Grid.Row="2"
+                                    Minimum="0"
+                                    Maximum="100"
+                                    Height="8" />
+
+                                <Grid
+                                    Grid.Row="3"
+                                    ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Focus time" Opacity="0.72" />
+                                        <TextBlock
+                                            x:Name="DailyFocusProgressTextBlock"
+                                            FontSize="20"
+                                            FontWeight="SemiBold" />
+                                    </StackPanel>
+
+                                    <StackPanel
+                                        Grid.Column="1"
+                                        Spacing="4">
+                                        <TextBlock Text="Focus + breaks" Opacity="0.72" />
+                                        <TextBlock
+                                            x:Name="DailyTotalProgressTextBlock"
+                                            FontSize="20"
+                                            FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <Border
+                            x:Name="DevToolsCard"
+                            Grid.Row="3"
                             Grid.Column="0"
                             Grid.ColumnSpan="2"
                             Padding="16"
@@ -400,7 +493,7 @@
 
                         <ListView
                             x:Name="DeveloperStagesListView"
-                            Grid.Row="3"
+                            Grid.Row="4"
                             Grid.Column="0"
                             Grid.ColumnSpan="2">
                             <ListView.Header>

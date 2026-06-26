@@ -31,6 +31,9 @@ namespace FocusGuard.Clock.App
         private ClockSettings _currentSettings = ClockSettings.Defaults;
         private bool _isApplyingSettings;
         private DateTimeOffset _lastTickAt;
+        private TimeSpan _dailyFocusProgress = TimeSpan.Zero;
+        private TimeSpan _dailyTotalProgress = TimeSpan.Zero;
+        private FocusTimerRunner? _committedTimerRunner;
 
         public MainWindow()
         {
@@ -157,6 +160,7 @@ namespace FocusGuard.Clock.App
         {
             if (_timerRunner?.Snapshot.Status is FocusTimerStatus.Idle or FocusTimerStatus.Completed)
             {
+                CommitCurrentTimerToDailyProgress();
                 CalculateAndRenderPlan();
             }
 
@@ -203,6 +207,7 @@ namespace FocusGuard.Clock.App
             }
 
             _timer.Stop();
+            CommitCurrentTimerToDailyProgress();
             var result = _timerRunner.Stop();
             var message = $"Reset. Focus progress: {FormatTime(result.FocusElapsed)}";
             CalculateAndRenderPlan();
@@ -232,6 +237,7 @@ namespace FocusGuard.Clock.App
             _lastTickAt = DateTimeOffset.Now;
             var events = _timerRunner.Advance(TimeSpan.FromSeconds(seconds));
             RenderEvents(events);
+            CommitIfCompleted();
             RenderTimer(_timerRunner.Snapshot);
 
             if (_timerRunner.Snapshot.Status is FocusTimerStatus.Completed)
@@ -255,6 +261,39 @@ namespace FocusGuard.Clock.App
             _notificationService.ShowFocusFinished();
         }
 
+        private async void EditDailyGoalButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dailyGoalBox = new NumberBox
+            {
+                Header = "Daily goal (minutes)",
+                Minimum = 1,
+                Value = _currentSettings.DailyGoalMinutes,
+                SmallChange = 15,
+                LargeChange = 60,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline
+            };
+
+            var dialog = new ContentDialog
+            {
+                Title = "Edit daily goal",
+                Content = dailyGoalBox,
+                PrimaryButtonText = "Save",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = RootNavigationView.XamlRoot
+            };
+
+            if (await dialog.ShowAsync() is not ContentDialogResult.Primary)
+            {
+                return;
+            }
+
+            var dailyGoalMinutes = Math.Max(1, ReadWholeNumber(dailyGoalBox));
+            _currentSettings = _currentSettings with { DailyGoalMinutes = dailyGoalMinutes };
+            _settingsService.Save(_currentSettings);
+            RenderDailyProgress(_timerRunner?.Snapshot);
+        }
+
         private void Timer_Tick(object? sender, object e)
         {
             if (_timerRunner is null)
@@ -269,6 +308,7 @@ namespace FocusGuard.Clock.App
 
             var events = _timerRunner.Advance(elapsed);
             RenderEvents(events);
+            CommitIfCompleted();
             RenderTimer(_timerRunner.Snapshot);
 
             if (_timerRunner.Snapshot.Status is FocusTimerStatus.Completed)
@@ -288,6 +328,7 @@ namespace FocusGuard.Clock.App
             ShowNotificationsToggleSwitch.IsOn = settings.ShowNotifications;
             PlayNotificationSoundToggleSwitch.IsOn = settings.PlayNotificationSound;
             ApplyNotificationSettings(settings);
+            RenderDailyProgress(_timerRunner?.Snapshot);
             _isApplyingSettings = false;
         }
 
@@ -297,6 +338,7 @@ namespace FocusGuard.Clock.App
                 TotalDuration: ReadWholeNumber(TotalDurationBox),
                 FocusPeriod: ReadWholeNumber(FocusPeriodBox),
                 BreakPeriod: ReadWholeNumber(BreakPeriodBox),
+                DailyGoalMinutes: _currentSettings.DailyGoalMinutes,
                 SkipBreaks: SkipBreaksCheckBox.IsChecked == true,
                 ShowNotifications: ShowNotificationsToggleSwitch.IsOn,
                 PlayNotificationSound: PlayNotificationSoundToggleSwitch.IsOn);
@@ -331,6 +373,7 @@ namespace FocusGuard.Clock.App
                 DeveloperFocusElapsedTextBlock.Text = "--:--";
                 DeveloperTotalElapsedTextBlock.Text = "--:--";
                 SetTimerButtonState(FocusTimerStatus.Idle, hasTimer: false);
+                RenderDailyProgress(null);
                 return;
             }
 
@@ -345,6 +388,21 @@ namespace FocusGuard.Clock.App
             DeveloperTotalElapsedTextBlock.Text = FormatTime(snapshot.TotalElapsed);
 
             SetTimerButtonState(snapshot.Status, hasTimer: true);
+            RenderDailyProgress(snapshot);
+        }
+
+        private void RenderDailyProgress(FocusTimerSnapshot? snapshot)
+        {
+            var includeCurrentTimer = snapshot is not null && !ReferenceEquals(_timerRunner, _committedTimerRunner);
+            var focusProgress = _dailyFocusProgress + (includeCurrentTimer ? snapshot!.FocusElapsed : TimeSpan.Zero);
+            var totalProgress = _dailyTotalProgress + (includeCurrentTimer ? snapshot!.TotalElapsed : TimeSpan.Zero);
+            var goal = TimeSpan.FromMinutes(Math.Max(1, _currentSettings.DailyGoalMinutes));
+            var progressPercent = Math.Clamp(focusProgress.TotalMinutes / goal.TotalMinutes * 100, 0, 100);
+
+            DailyGoalTextBlock.Text = FormatDurationLabel(goal);
+            DailyFocusProgressTextBlock.Text = FormatDurationLabel(focusProgress);
+            DailyTotalProgressTextBlock.Text = FormatDurationLabel(totalProgress);
+            DailyProgressBar.Value = progressPercent;
         }
 
         private void SetTimerButtonState(FocusTimerStatus status, bool hasTimer)
@@ -363,6 +421,27 @@ namespace FocusGuard.Clock.App
             DeveloperResumeButton.Visibility = canResume ? Visibility.Visible : Visibility.Collapsed;
             DeveloperResetButton.Visibility = canReset ? Visibility.Visible : Visibility.Collapsed;
             AdvanceButton.IsEnabled = hasTimer && status is FocusTimerStatus.Running;
+        }
+
+        private void CommitIfCompleted()
+        {
+            if (_timerRunner?.Snapshot.Status is FocusTimerStatus.Completed)
+            {
+                CommitCurrentTimerToDailyProgress();
+            }
+        }
+
+        private void CommitCurrentTimerToDailyProgress()
+        {
+            if (_timerRunner is null || ReferenceEquals(_timerRunner, _committedTimerRunner))
+            {
+                return;
+            }
+
+            var snapshot = _timerRunner.Snapshot;
+            _dailyFocusProgress += snapshot.FocusElapsed;
+            _dailyTotalProgress += snapshot.TotalElapsed;
+            _committedTimerRunner = _timerRunner;
         }
 
         private void RenderEvents(IReadOnlyList<FocusTimerEvent> events, bool showNotifications = true)
@@ -427,6 +506,22 @@ namespace FocusGuard.Clock.App
             return $"{(int)duration.TotalMinutes} min";
         }
 
+        private static string FormatDurationLabel(TimeSpan duration)
+        {
+            var totalMinutes = Math.Max(0, (int)Math.Round(duration.TotalMinutes));
+            if (totalMinutes < 60)
+            {
+                return $"{totalMinutes} min";
+            }
+
+            var hours = totalMinutes / 60;
+            var minutes = totalMinutes % 60;
+
+            return minutes == 0
+                ? $"{hours} h"
+                : $"{hours} h {minutes} min";
+        }
+
         private void SaveSettingsAndRecalculate()
         {
             if (_isApplyingSettings)
@@ -438,6 +533,7 @@ namespace FocusGuard.Clock.App
             _currentSettings = settings;
             _settingsService.Save(settings);
             ApplyNotificationSettings(settings);
+            RenderDailyProgress(_timerRunner?.Snapshot);
 
             if (IsTimerInProgress())
             {
@@ -492,9 +588,11 @@ namespace FocusGuard.Clock.App
                 Grid.SetColumn(UnusedCard, 3);
                 Grid.SetRow(CurrentTimerCard, 1);
                 Grid.SetColumn(CurrentTimerCard, 0);
-                Grid.SetRow(DevToolsCard, 1);
-                Grid.SetColumn(DevToolsCard, 2);
-                Grid.SetRow(DeveloperStagesListView, 2);
+                Grid.SetRow(DailyProgressCard, 1);
+                Grid.SetColumn(DailyProgressCard, 2);
+                Grid.SetRow(DevToolsCard, 2);
+                Grid.SetColumn(DevToolsCard, 0);
+                Grid.SetRow(DeveloperStagesListView, 3);
                 Grid.SetColumnSpan(ErrorTextBlock, 4);
                 return;
             }
@@ -505,9 +603,11 @@ namespace FocusGuard.Clock.App
             Grid.SetColumn(UnusedCard, 1);
             Grid.SetRow(CurrentTimerCard, 2);
             Grid.SetColumn(CurrentTimerCard, 0);
-            Grid.SetRow(DevToolsCard, 3);
+            Grid.SetRow(DailyProgressCard, 3);
+            Grid.SetColumn(DailyProgressCard, 0);
+            Grid.SetRow(DevToolsCard, 4);
             Grid.SetColumn(DevToolsCard, 0);
-            Grid.SetRow(DeveloperStagesListView, 4);
+            Grid.SetRow(DeveloperStagesListView, 5);
             Grid.SetColumnSpan(ErrorTextBlock, 2);
         }
 

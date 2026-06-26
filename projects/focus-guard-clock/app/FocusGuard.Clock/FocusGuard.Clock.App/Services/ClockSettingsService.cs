@@ -8,6 +8,7 @@ public sealed class ClockSettingsService
     private const string TotalDurationKey = "Clock.TotalDuration";
     private const string FocusPeriodKey = "Clock.FocusPeriod";
     private const string BreakPeriodKey = "Clock.BreakPeriod";
+    private const string DailyGoalMinutesKey = "Clock.DailyGoalMinutes";
     private const string LegacyTotalDurationMinutesKey = "Clock.TotalDurationMinutes";
     private const string LegacyFocusPeriodMinutesKey = "Clock.FocusPeriodMinutes";
     private const string LegacyBreakPeriodMinutesKey = "Clock.BreakPeriodMinutes";
@@ -25,6 +26,7 @@ public sealed class ClockSettingsService
             TotalDuration: ReadInt(TotalDurationKey, LegacyTotalDurationMinutesKey, defaults.TotalDuration),
             FocusPeriod: ReadInt(FocusPeriodKey, LegacyFocusPeriodMinutesKey, defaults.FocusPeriod),
             BreakPeriod: ReadInt(BreakPeriodKey, LegacyBreakPeriodMinutesKey, defaults.BreakPeriod),
+            DailyGoalMinutes: ReadInt(DailyGoalMinutesKey, defaults.DailyGoalMinutes),
             SkipBreaks: ReadBool(SkipBreaksKey, defaults.SkipBreaks),
             ShowNotifications: ReadBool(ShowNotificationsKey, defaults.ShowNotifications),
             PlayNotificationSound: ReadBool(PlayNotificationSoundKey, defaults.PlayNotificationSound));
@@ -35,9 +37,19 @@ public sealed class ClockSettingsService
         _localSettings.Values[TotalDurationKey] = settings.TotalDuration;
         _localSettings.Values[FocusPeriodKey] = settings.FocusPeriod;
         _localSettings.Values[BreakPeriodKey] = settings.BreakPeriod;
+        _localSettings.Values[DailyGoalMinutesKey] = settings.DailyGoalMinutes;
         _localSettings.Values[SkipBreaksKey] = settings.SkipBreaks;
         _localSettings.Values[ShowNotificationsKey] = settings.ShowNotifications;
         _localSettings.Values[PlayNotificationSoundKey] = settings.PlayNotificationSound;
+    }
+
+    private int ReadInt(string key, int fallback)
+    {
+        var value = _localSettings.Values[key];
+
+        return value is int intValue
+            ? intValue
+            : fallback;
     }
 
     private int ReadInt(string key, string legacyKey, int fallback)
