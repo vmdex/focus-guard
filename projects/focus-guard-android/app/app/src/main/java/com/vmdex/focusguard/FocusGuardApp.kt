@@ -40,8 +40,11 @@ fun FocusGuardApp(
     settings: FocusGuardSettings,
     effectiveSettings: FocusGuardSettings,
     hasPendingSettings: Boolean,
+    watcherState: WatcherState,
     packageName: String,
     onRefreshUsageData: () -> Unit,
+    onStartMonitoring: () -> Unit,
+    onStopMonitoring: () -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit
 ) {
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -53,8 +56,11 @@ fun FocusGuardApp(
             settings = settings,
             effectiveSettings = effectiveSettings,
             hasPendingSettings = hasPendingSettings,
+            watcherState = watcherState,
             packageName = packageName,
             onRefreshUsageData = onRefreshUsageData,
+            onStartMonitoring = onStartMonitoring,
+            onStopMonitoring = onStopMonitoring,
             onSettingsChanged = onSettingsChanged,
             modifier = Modifier.padding(innerPadding)
         )
@@ -70,8 +76,11 @@ private fun UsageAccessScreen(
     settings: FocusGuardSettings,
     effectiveSettings: FocusGuardSettings,
     hasPendingSettings: Boolean,
+    watcherState: WatcherState,
     packageName: String,
     onRefreshUsageData: () -> Unit,
+    onStartMonitoring: () -> Unit,
+    onStopMonitoring: () -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -112,6 +121,12 @@ private fun UsageAccessScreen(
                 onOpenSettings = {
                     context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                 }
+            )
+
+            MonitoringCard(
+                watcherState = watcherState,
+                onStartMonitoring = onStartMonitoring,
+                onStopMonitoring = onStopMonitoring
             )
 
             DevSettingsCard(
@@ -180,6 +195,59 @@ private fun PermissionStatusCard(
             ) {
                 Text(text = "Open usage access settings")
             }
+        }
+    }
+}
+
+@Composable
+private fun MonitoringCard(
+    watcherState: WatcherState,
+    onStartMonitoring: () -> Unit,
+    onStopMonitoring: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "Monitoring",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            DevInfoRow(label = "Monitoring", value = if (watcherState.isRunning) "On" else "Off")
+            DevInfoRow(
+                label = "Last service tick",
+                value = watcherState.lastTickTimeMillis?.let(::formatTimestamp) ?: "-"
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = onStartMonitoring,
+                    enabled = !watcherState.isRunning,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = "Start monitoring")
+                }
+
+                Button(
+                    onClick = onStopMonitoring,
+                    enabled = watcherState.isRunning,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = "Stop")
+                }
+            }
+
+            Text(
+                text = "This starts the first foreground service shell. Detection still stays in the app screen until the next step.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -424,8 +492,11 @@ private fun UsageAccessScreenPreview() {
             settings = FocusGuardSettings(),
             effectiveSettings = FocusGuardSettings(),
             hasPendingSettings = false,
+            watcherState = WatcherState(),
             packageName = "com.vmdex.focusguard",
             onRefreshUsageData = {},
+            onStartMonitoring = {},
+            onStopMonitoring = {},
             onSettingsChanged = {}
         )
     }

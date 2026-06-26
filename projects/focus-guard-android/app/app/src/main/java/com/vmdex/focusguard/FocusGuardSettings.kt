@@ -7,6 +7,9 @@ const val DefaultSessionLimitMillis = 30 * 1000L
 const val LimitNotificationChannelId = "focus_guard_limit_alerts"
 const val LimitNotificationId = 1001
 const val NotificationPermissionRequestCode = 2001
+const val WatcherNotificationChannelId = "focus_guard_monitoring"
+const val WatcherNotificationId = 2001
+const val WatcherTickMillis = 1000L
 
 val TrackedAppPackages = setOf(
     "com.google.android.youtube",

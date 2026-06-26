@@ -19,17 +19,21 @@ class MainActivity : ComponentActivity() {
     private var alertState by mutableStateOf(AlertState())
     private var settings by mutableStateOf(FocusGuardSettings())
     private var effectiveSettings by mutableStateOf(FocusGuardSettings())
+    private var watcherState by mutableStateOf(WatcherState())
     private var alertedSessionKey: String? = null
     private var pendingSettingsChangedAtMillis: Long? = null
     private lateinit var notifier: FocusGuardNotifier
     private lateinit var settingsStore: FocusGuardSettingsStore
+    private lateinit var watcherStateStore: WatcherStateStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         settingsStore = FocusGuardSettingsStore(this)
+        watcherStateStore = WatcherStateStore(this)
         settings = settingsStore.load()
+        watcherState = watcherStateStore.load()
         effectiveSettings = settings
         notifier = FocusGuardNotifier(this)
         notifier.createLimitChannel()
@@ -46,8 +50,11 @@ class MainActivity : ComponentActivity() {
                     settings = settings,
                     effectiveSettings = effectiveSettings,
                     hasPendingSettings = settings != effectiveSettings,
+                    watcherState = watcherState,
                     packageName = packageName,
                     onRefreshUsageData = ::refreshUsageData,
+                    onStartMonitoring = ::startMonitoring,
+                    onStopMonitoring = ::stopMonitoring,
                     onSettingsChanged = ::applySettings
                 )
             }
@@ -62,6 +69,7 @@ class MainActivity : ComponentActivity() {
     private fun refreshUsageData() {
         // The UI still drives monitoring in this prototype. A foreground service will own this loop later.
         currentTimeMillis = System.currentTimeMillis()
+        watcherState = watcherStateStore.load()
         hasUsageAccess = hasUsageAccessPermission(this)
         foregroundAppState = if (hasUsageAccess) {
             readLatestForegroundApp(this, effectiveSettings.gracePeriodMillis)
@@ -75,6 +83,10 @@ class MainActivity : ComponentActivity() {
 
     private fun maybeShowLimitExceededNotification() {
         // Notify once per session, otherwise the one-second refresh loop would spam the user.
+        if (!watcherState.isRunning) {
+            return
+        }
+
         val detected = foregroundAppState as? ForegroundAppState.Detected ?: return
         if (detected.sessionStatus == SessionStatus.Ended) {
             return
@@ -109,6 +121,17 @@ class MainActivity : ComponentActivity() {
             pendingSettingsChangedAtMillis = currentTimeMillis
         }
         refreshUsageData()
+    }
+
+    private fun startMonitoring() {
+        UsageWatcherService.start(this)
+        watcherState = WatcherState(isRunning = true, lastTickTimeMillis = System.currentTimeMillis())
+    }
+
+    private fun stopMonitoring() {
+        UsageWatcherService.stop(this)
+        watcherState = WatcherState(isRunning = false, lastTickTimeMillis = null)
+        alertState = AlertState()
     }
 
     private fun applyPendingSettingsIfReady() {
