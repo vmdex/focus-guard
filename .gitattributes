@@ -1,0 +1,23 @@
+* text=auto
+
+*.cs text
+*.csproj text
+*.slnx text
+*.xaml text
+*.xml text
+*.json text
+*.md text
+*.kt text
+*.kts text
+*.properties text
+*.toml text
+*.gradle text
+*.keep text
+
+*.png binary
+*.webp binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.jar binary
+*.wav binary
