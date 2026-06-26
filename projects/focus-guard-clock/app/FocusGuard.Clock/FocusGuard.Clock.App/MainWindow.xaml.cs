@@ -419,8 +419,8 @@ namespace FocusGuard.Clock.App
                 ? new GridLength(1, GridUnitType.Star)
                 : new GridLength(0);
 
-            UsedCard.Visibility = isWide ? Visibility.Visible : Visibility.Collapsed;
-            UnusedCard.Visibility = isWide ? Visibility.Visible : Visibility.Collapsed;
+            UsedCard.Visibility = Visibility.Visible;
+            UnusedCard.Visibility = Visibility.Visible;
 
             if (isWide)
             {
@@ -437,11 +437,15 @@ namespace FocusGuard.Clock.App
                 return;
             }
 
-            Grid.SetRow(CurrentTimerCard, 1);
+            Grid.SetRow(UsedCard, 1);
+            Grid.SetColumn(UsedCard, 0);
+            Grid.SetRow(UnusedCard, 1);
+            Grid.SetColumn(UnusedCard, 1);
+            Grid.SetRow(CurrentTimerCard, 2);
             Grid.SetColumn(CurrentTimerCard, 0);
-            Grid.SetRow(DevToolsCard, 2);
+            Grid.SetRow(DevToolsCard, 3);
             Grid.SetColumn(DevToolsCard, 0);
-            Grid.SetRow(DeveloperStagesListView, 3);
+            Grid.SetRow(DeveloperStagesListView, 4);
             Grid.SetColumnSpan(ErrorTextBlock, 2);
         }
 
