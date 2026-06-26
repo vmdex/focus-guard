@@ -17,9 +17,9 @@ public sealed class NotificationService
         var message = timerEvent.Kind switch
         {
             FocusTimerEventKind.FocusStarted when timerEvent.Stage is not null
-                => $"Started focus session {FormatMinutes(timerEvent.Stage.Duration)}",
+                => CreateFocusStartedMessage(timerEvent.Stage.Duration),
             FocusTimerEventKind.BreakStarted when timerEvent.Stage is not null
-                => $"Started break {FormatMinutes(timerEvent.Stage.Duration)}",
+                => CreateBreakStartedMessage(timerEvent.Stage.Duration),
             FocusTimerEventKind.TimerCompleted => "Finished focus session",
             _ => null
         };
@@ -30,6 +30,21 @@ public sealed class NotificationService
         }
 
         ShowToast(message);
+    }
+
+    public void ShowFocusStarted(TimeSpan duration)
+    {
+        ShowToast(CreateFocusStartedMessage(duration));
+    }
+
+    public void ShowBreakStarted(TimeSpan duration)
+    {
+        ShowToast(CreateBreakStartedMessage(duration));
+    }
+
+    public void ShowFocusFinished()
+    {
+        ShowToast("Finished focus session");
     }
 
     private static void ShowToast(string message)
@@ -54,5 +69,15 @@ public sealed class NotificationService
     {
         var minutes = Math.Max(1, (int)Math.Ceiling(duration.TotalMinutes));
         return $"{minutes} min";
+    }
+
+    private static string CreateFocusStartedMessage(TimeSpan duration)
+    {
+        return $"Started focus session {FormatMinutes(duration)}";
+    }
+
+    private static string CreateBreakStartedMessage(TimeSpan duration)
+    {
+        return $"Started break {FormatMinutes(duration)}";
     }
 }

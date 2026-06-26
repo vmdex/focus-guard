@@ -188,6 +188,21 @@ namespace FocusGuard.Clock.App
             }
         }
 
+        private void TestBreakNotificationButton_Click(object sender, RoutedEventArgs e)
+        {
+            _notificationService.ShowBreakStarted(TimeSpan.FromMinutes(_currentSettings.BreakPeriod));
+        }
+
+        private void TestFocusNotificationButton_Click(object sender, RoutedEventArgs e)
+        {
+            _notificationService.ShowFocusStarted(TimeSpan.FromMinutes(_currentSettings.FocusPeriod));
+        }
+
+        private void TestFinishedNotificationButton_Click(object sender, RoutedEventArgs e)
+        {
+            _notificationService.ShowFocusFinished();
+        }
+
         private void Timer_Tick(object? sender, object e)
         {
             if (_timerRunner is null)
