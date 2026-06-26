@@ -138,7 +138,7 @@ namespace FocusGuard.Clock.App
 
             _lastTickAt = DateTimeOffset.Now;
             var snapshot = _timerRunner.Resume(out var events);
-            RenderEvents(events);
+            RenderEvents(events, showNotifications: false);
             RenderTimer(snapshot);
             _timer.Start();
         }
@@ -289,7 +289,7 @@ namespace FocusGuard.Clock.App
             AdvanceButton.IsEnabled = hasTimer && status is FocusTimerStatus.Running;
         }
 
-        private void RenderEvents(IReadOnlyList<FocusTimerEvent> events)
+        private void RenderEvents(IReadOnlyList<FocusTimerEvent> events, bool showNotifications = true)
         {
             if (events.Count == 0)
             {
@@ -305,6 +305,11 @@ namespace FocusGuard.Clock.App
             };
 
             DeveloperTimerEventTextBlock.Text = message;
+
+            if (!showNotifications)
+            {
+                return;
+            }
 
             foreach (var timerEvent in events)
             {

@@ -14,15 +14,13 @@ public sealed class NotificationService
 {
     public void ShowTimerTransition(FocusTimerEvent timerEvent)
     {
-        if (timerEvent.Stage is null)
-        {
-            return;
-        }
-
         var message = timerEvent.Kind switch
         {
-            FocusTimerEventKind.FocusStarted => $"Started focus session {FormatMinutes(timerEvent.Stage.Duration)}",
-            FocusTimerEventKind.BreakStarted => $"Started break {FormatMinutes(timerEvent.Stage.Duration)}",
+            FocusTimerEventKind.FocusStarted when timerEvent.Stage is not null
+                => $"Started focus session {FormatMinutes(timerEvent.Stage.Duration)}",
+            FocusTimerEventKind.BreakStarted when timerEvent.Stage is not null
+                => $"Started break {FormatMinutes(timerEvent.Stage.Duration)}",
+            FocusTimerEventKind.TimerCompleted => "Finished focus session",
             _ => null
         };
 
