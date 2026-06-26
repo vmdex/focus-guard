@@ -88,7 +88,8 @@ private sealed interface ForegroundAppState {
         val packageName: String,
         val className: String?,
         val eventType: Int,
-        val timestampMillis: Long
+        val timestampMillis: Long,
+        val isTracked: Boolean
     ) : ForegroundAppState
 }
 
@@ -114,12 +115,16 @@ private fun readLatestForegroundApp(context: Context): ForegroundAppState {
     while (events.hasNextEvent()) {
         events.getNextEvent(event)
 
-        if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+        if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND &&
+            event.packageName != context.packageName &&
+            event.packageName in TrackedAppPackages
+        ) {
             latestDetected = ForegroundAppState.Detected(
                 packageName = event.packageName ?: "",
                 className = event.className,
                 eventType = event.eventType,
-                timestampMillis = event.timeStamp
+                timestampMillis = event.timeStamp,
+                isTracked = true
             )
         }
     }
@@ -249,6 +254,13 @@ private fun DevInfoCard(
 
             DevInfoRow(label = "Package", value = packageName)
             DevInfoRow(label = "Usage access", value = if (hasUsageAccess) "true" else "false")
+            DevInfoRow(label = "Own package ignored", value = "true")
+            DevInfoRow(label = "Tracked apps", value = TrackedAppPackages.size.toString())
+            Text(
+                text = TrackedAppPackages.joinToString(separator = "\n"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             ForegroundAppRows(foregroundAppState)
 
             Button(
@@ -261,7 +273,7 @@ private fun DevInfoCard(
             Spacer(modifier = Modifier.height(2.dp))
 
             Text(
-                text = "Usage events can lag slightly and may report the latest foreground transition, not a perfect live app state.",
+                text = "Only tracked apps are detected here. Launcher, recents, system screens, and other untracked apps are ignored for now.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -282,6 +294,7 @@ private fun ForegroundAppRows(foregroundAppState: ForegroundAppState) {
 
         is ForegroundAppState.Detected -> {
             DevInfoRow(label = "Detected app", value = foregroundAppState.packageName)
+            DevInfoRow(label = "Tracked", value = foregroundAppState.isTracked.toString())
             DevInfoRow(label = "Class", value = foregroundAppState.className ?: "-")
             DevInfoRow(label = "Event", value = eventTypeLabel(foregroundAppState.eventType))
             DevInfoRow(label = "Event time", value = formatTimestamp(foregroundAppState.timestampMillis))
@@ -336,5 +349,12 @@ private fun UsageAccessScreenPreview() {
 }
 
 private const val UsageLookupWindowMillis = 10 * 60 * 1000L
+
+private val TrackedAppPackages = setOf(
+    "com.google.android.youtube",
+    "com.android.chrome",
+    "com.chrome.beta",
+    "tv.twitch.android.app"
+)
 
 private val TimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
