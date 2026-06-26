@@ -93,8 +93,17 @@ private sealed interface ForegroundAppState {
         val className: String?,
         val eventType: Int,
         val timestampMillis: Long,
-        val isTracked: Boolean
+        val isTracked: Boolean,
+        val sessionStatus: SessionStatus,
+        val lastForegroundPackageName: String,
+        val interruptionStartedAtMillis: Long?
     ) : ForegroundAppState
+}
+
+private enum class SessionStatus {
+    Active,
+    GracePeriod,
+    Ended
 }
 
 private fun hasUsageAccessPermission(context: Context): Boolean {
@@ -114,27 +123,64 @@ private fun readLatestForegroundApp(context: Context): ForegroundAppState {
     val start = now - UsageLookupWindowMillis
     val events = usageStatsManager.queryEvents(start, now)
     val event = UsageEvents.Event()
-    var latestDetected: ForegroundAppState.Detected? = null
+    var latestTrackedApp: TrackedForegroundEvent? = null
+    var lastForegroundPackageName: String? = null
+    var interruptionStartedAtMillis: Long? = null
 
     while (events.hasNextEvent()) {
         events.getNextEvent(event)
 
-        if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND &&
-            event.packageName != context.packageName &&
-            event.packageName in TrackedAppPackages
+        if (event.eventType != UsageEvents.Event.MOVE_TO_FOREGROUND) {
+            continue
+        }
+
+        val foregroundPackageName = event.packageName ?: continue
+        lastForegroundPackageName = foregroundPackageName
+
+        if (foregroundPackageName != context.packageName &&
+            foregroundPackageName in TrackedAppPackages
         ) {
-            latestDetected = ForegroundAppState.Detected(
-                packageName = event.packageName ?: "",
+            latestTrackedApp = TrackedForegroundEvent(
+                packageName = foregroundPackageName,
                 className = event.className,
                 eventType = event.eventType,
-                timestampMillis = event.timeStamp,
-                isTracked = true
+                timestampMillis = event.timeStamp
             )
+            interruptionStartedAtMillis = null
+            continue
+        }
+
+        if (latestTrackedApp != null && interruptionStartedAtMillis == null) {
+            interruptionStartedAtMillis = event.timeStamp
         }
     }
 
-    return latestDetected ?: ForegroundAppState.Unknown
+    val trackedApp = latestTrackedApp ?: return ForegroundAppState.Unknown
+    val sessionStatus = when {
+        lastForegroundPackageName == trackedApp.packageName -> SessionStatus.Active
+        interruptionStartedAtMillis == null -> SessionStatus.Active
+        now - interruptionStartedAtMillis <= DefaultGracePeriodMillis -> SessionStatus.GracePeriod
+        else -> SessionStatus.Ended
+    }
+
+    return ForegroundAppState.Detected(
+        packageName = trackedApp.packageName,
+        className = trackedApp.className,
+        eventType = trackedApp.eventType,
+        timestampMillis = trackedApp.timestampMillis,
+        isTracked = true,
+        sessionStatus = sessionStatus,
+        lastForegroundPackageName = lastForegroundPackageName ?: "-",
+        interruptionStartedAtMillis = interruptionStartedAtMillis
+    )
 }
+
+private data class TrackedForegroundEvent(
+    val packageName: String,
+    val className: String?,
+    val eventType: Int,
+    val timestampMillis: Long
+)
 
 @Composable
 private fun UsageAccessScreen(
@@ -270,6 +316,8 @@ private fun DevInfoCard(
             DevInfoRow(label = "Usage access", value = if (hasUsageAccess) "true" else "false")
             DevInfoRow(label = "Own package ignored", value = "true")
             DevInfoRow(label = "Tracked apps", value = TrackedAppPackages.size.toString())
+            DevInfoRow(label = "Session strategy", value = "Grace period")
+            DevInfoRow(label = "Grace period", value = formatElapsed(DefaultGracePeriodMillis))
             Text(
                 text = TrackedAppPackages.joinToString(separator = "\n"),
                 style = MaterialTheme.typography.bodySmall,
@@ -313,6 +361,8 @@ private fun ForegroundAppRows(foregroundAppState: ForegroundAppState) {
         is ForegroundAppState.Detected -> {
             DevInfoRow(label = "Detected app", value = foregroundAppState.packageName)
             DevInfoRow(label = "Tracked", value = foregroundAppState.isTracked.toString())
+            DevInfoRow(label = "Session status", value = sessionStatusLabel(foregroundAppState.sessionStatus))
+            DevInfoRow(label = "Last foreground", value = foregroundAppState.lastForegroundPackageName)
             DevInfoRow(label = "Class", value = foregroundAppState.className ?: "-")
             DevInfoRow(label = "Event", value = eventTypeLabel(foregroundAppState.eventType))
             DevInfoRow(label = "Event time", value = formatTimestamp(foregroundAppState.timestampMillis))
@@ -327,11 +377,26 @@ private fun CurrentSessionRows(
 ) {
     when (foregroundAppState) {
         is ForegroundAppState.Detected -> {
-            val elapsedMillis = currentTimeMillis - foregroundAppState.timestampMillis
+            val elapsedMillis = when {
+                foregroundAppState.sessionStatus == SessionStatus.Ended &&
+                    foregroundAppState.interruptionStartedAtMillis != null ->
+                    foregroundAppState.interruptionStartedAtMillis - foregroundAppState.timestampMillis
+
+                else -> currentTimeMillis - foregroundAppState.timestampMillis
+            }
 
             DevInfoRow(label = "Session app", value = foregroundAppState.packageName)
             DevInfoRow(label = "Session started", value = formatTimestamp(foregroundAppState.timestampMillis))
             DevInfoRow(label = "Session elapsed", value = formatElapsed(elapsedMillis))
+
+            if (foregroundAppState.sessionStatus == SessionStatus.GracePeriod &&
+                foregroundAppState.interruptionStartedAtMillis != null
+            ) {
+                val graceElapsed = currentTimeMillis - foregroundAppState.interruptionStartedAtMillis
+                val graceRemaining = DefaultGracePeriodMillis - graceElapsed
+
+                DevInfoRow(label = "Grace remaining", value = formatElapsed(graceRemaining))
+            }
         }
 
         else -> {
@@ -368,6 +433,14 @@ private fun eventTypeLabel(eventType: Int): String {
     }
 }
 
+private fun sessionStatusLabel(sessionStatus: SessionStatus): String {
+    return when (sessionStatus) {
+        SessionStatus.Active -> "Active"
+        SessionStatus.GracePeriod -> "Grace period"
+        SessionStatus.Ended -> "Ended"
+    }
+}
+
 private fun formatTimestamp(timestampMillis: Long): String {
     return Instant.ofEpochMilli(timestampMillis)
         .atZone(ZoneId.systemDefault())
@@ -397,6 +470,7 @@ private fun UsageAccessScreenPreview() {
 }
 
 private const val UsageLookupWindowMillis = 10 * 60 * 1000L
+private const val DefaultGracePeriodMillis = 15 * 1000L
 
 private val TrackedAppPackages = setOf(
     "com.google.android.youtube",
