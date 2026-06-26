@@ -119,6 +119,11 @@ namespace FocusGuard.Clock.App
 
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_timerRunner?.Snapshot.Status is FocusTimerStatus.Idle or FocusTimerStatus.Completed)
+            {
+                CalculateAndRenderPlan();
+            }
+
             if (_timerRunner is null)
             {
                 CalculateAndRenderPlan();
@@ -164,8 +169,8 @@ namespace FocusGuard.Clock.App
             _timer.Stop();
             var result = _timerRunner.Stop();
             var message = $"Reset. Focus progress: {FormatTime(result.FocusElapsed)}";
+            CalculateAndRenderPlan();
             DeveloperTimerEventTextBlock.Text = message;
-            RenderTimer(_timerRunner.Snapshot);
         }
 
         private void AdvanceButton_Click(object sender, RoutedEventArgs e)
@@ -389,8 +394,25 @@ namespace FocusGuard.Clock.App
                 return;
             }
 
+            var settings = ReadSettingsFromInputs();
+            _currentSettings = settings;
+            _settingsService.Save(settings);
+            ApplyNotificationSettings(settings);
+
+            if (IsTimerInProgress())
+            {
+                DeveloperTimerEventTextBlock.Text = "Settings saved. They will apply on the next start.";
+                return;
+            }
+
             CalculateAndRenderPlan();
             ApplyNotificationSettings(_currentSettings);
+        }
+
+        private bool IsTimerInProgress()
+        {
+            var status = _timerRunner?.Snapshot.Status;
+            return status is FocusTimerStatus.Running or FocusTimerStatus.Paused;
         }
 
         private void ApplyNotificationSettings(ClockSettings settings)
