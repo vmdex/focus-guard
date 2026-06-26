@@ -28,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -45,6 +46,7 @@ import java.time.format.DateTimeFormatter
 class MainActivity : ComponentActivity() {
     private var hasUsageAccess by mutableStateOf(false)
     private var foregroundAppState by mutableStateOf<ForegroundAppState>(ForegroundAppState.Unknown)
+    private var currentTimeMillis by mutableStateOf(System.currentTimeMillis())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +59,7 @@ class MainActivity : ComponentActivity() {
                     UsageAccessScreen(
                         hasUsageAccess = hasUsageAccess,
                         foregroundAppState = foregroundAppState,
+                        currentTimeMillis = currentTimeMillis,
                         packageName = packageName,
                         onRefreshUsageData = ::refreshUsageData,
                         modifier = Modifier.padding(innerPadding)
@@ -72,6 +75,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun refreshUsageData() {
+        currentTimeMillis = System.currentTimeMillis()
         hasUsageAccess = hasUsageAccessPermission(this)
         foregroundAppState = if (hasUsageAccess) {
             readLatestForegroundApp(this)
@@ -136,12 +140,20 @@ private fun readLatestForegroundApp(context: Context): ForegroundAppState {
 private fun UsageAccessScreen(
     hasUsageAccess: Boolean,
     foregroundAppState: ForegroundAppState,
+    currentTimeMillis: Long,
     packageName: String,
     onRefreshUsageData: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(1000)
+            onRefreshUsageData()
+        }
+    }
 
     Surface(modifier = modifier.fillMaxSize()) {
         Column(
@@ -175,6 +187,7 @@ private fun UsageAccessScreen(
                 packageName = packageName,
                 hasUsageAccess = hasUsageAccess,
                 foregroundAppState = foregroundAppState,
+                currentTimeMillis = currentTimeMillis,
                 onRefreshUsageData = onRefreshUsageData
             )
         }
@@ -239,6 +252,7 @@ private fun DevInfoCard(
     packageName: String,
     hasUsageAccess: Boolean,
     foregroundAppState: ForegroundAppState,
+    currentTimeMillis: Long,
     onRefreshUsageData: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -262,6 +276,10 @@ private fun DevInfoCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             ForegroundAppRows(foregroundAppState)
+            CurrentSessionRows(
+                foregroundAppState = foregroundAppState,
+                currentTimeMillis = currentTimeMillis
+            )
 
             Button(
                 onClick = onRefreshUsageData,
@@ -303,6 +321,27 @@ private fun ForegroundAppRows(foregroundAppState: ForegroundAppState) {
 }
 
 @Composable
+private fun CurrentSessionRows(
+    foregroundAppState: ForegroundAppState,
+    currentTimeMillis: Long
+) {
+    when (foregroundAppState) {
+        is ForegroundAppState.Detected -> {
+            val elapsedMillis = currentTimeMillis - foregroundAppState.timestampMillis
+
+            DevInfoRow(label = "Session app", value = foregroundAppState.packageName)
+            DevInfoRow(label = "Session started", value = formatTimestamp(foregroundAppState.timestampMillis))
+            DevInfoRow(label = "Session elapsed", value = formatElapsed(elapsedMillis))
+        }
+
+        else -> {
+            DevInfoRow(label = "Session app", value = "-")
+            DevInfoRow(label = "Session elapsed", value = "00:00")
+        }
+    }
+}
+
+@Composable
 private fun DevInfoRow(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -335,6 +374,14 @@ private fun formatTimestamp(timestampMillis: Long): String {
         .format(TimeFormatter)
 }
 
+private fun formatElapsed(elapsedMillis: Long): String {
+    val totalSeconds = (elapsedMillis / 1000).coerceAtLeast(0)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+
+    return "%02d:%02d".format(minutes, seconds)
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun UsageAccessScreenPreview() {
@@ -342,6 +389,7 @@ private fun UsageAccessScreenPreview() {
         UsageAccessScreen(
             hasUsageAccess = false,
             foregroundAppState = ForegroundAppState.PermissionMissing,
+            currentTimeMillis = System.currentTimeMillis(),
             packageName = "com.vmdex.focusguard",
             onRefreshUsageData = {}
         )
