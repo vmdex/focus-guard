@@ -14,3 +14,11 @@ val TrackedAppPackages = setOf(
     "com.chrome.beta",
     "tv.twitch.android.app"
 )
+
+data class FocusGuardSettings(
+    val gracePeriodMillis: Long = DefaultGracePeriodMillis,
+    val sessionLimitMillis: Long = DefaultSessionLimitMillis
+) {
+    val gracePeriodSeconds: Int = (gracePeriodMillis / 1000).toInt()
+    val sessionLimitSeconds: Int = (sessionLimitMillis / 1000).toInt()
+}

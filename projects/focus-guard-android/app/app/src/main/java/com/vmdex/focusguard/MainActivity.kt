@@ -17,13 +17,17 @@ class MainActivity : ComponentActivity() {
     private var foregroundAppState by mutableStateOf<ForegroundAppState>(ForegroundAppState.Unknown)
     private var currentTimeMillis by mutableStateOf(System.currentTimeMillis())
     private var alertState by mutableStateOf(AlertState())
+    private var settings by mutableStateOf(FocusGuardSettings())
     private var alertedSessionKey: String? = null
     private lateinit var notifier: FocusGuardNotifier
+    private lateinit var settingsStore: FocusGuardSettingsStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        settingsStore = FocusGuardSettingsStore(this)
+        settings = settingsStore.load()
         notifier = FocusGuardNotifier(this)
         notifier.createLimitChannel()
         requestNotificationPermissionIfNeeded()
@@ -36,8 +40,10 @@ class MainActivity : ComponentActivity() {
                     foregroundAppState = foregroundAppState,
                     currentTimeMillis = currentTimeMillis,
                     alertState = alertState,
+                    settings = settings,
                     packageName = packageName,
-                    onRefreshUsageData = ::refreshUsageData
+                    onRefreshUsageData = ::refreshUsageData,
+                    onSettingsChanged = ::applySettings
                 )
             }
         }
@@ -53,7 +59,7 @@ class MainActivity : ComponentActivity() {
         currentTimeMillis = System.currentTimeMillis()
         hasUsageAccess = hasUsageAccessPermission(this)
         foregroundAppState = if (hasUsageAccess) {
-            readLatestForegroundApp(this)
+            readLatestForegroundApp(this, settings.gracePeriodMillis)
         } else {
             ForegroundAppState.PermissionMissing
         }
@@ -69,7 +75,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val elapsedMillis = calculateSessionElapsedMillis(detected, currentTimeMillis)
-        if (elapsedMillis < DefaultSessionLimitMillis) {
+        if (elapsedMillis < settings.sessionLimitMillis) {
             return
         }
 
@@ -85,6 +91,12 @@ class MainActivity : ComponentActivity() {
             lastAlertTimeMillis = if (wasSent) currentTimeMillis else null,
             lastAlertPackageName = if (wasSent) detected.packageName else null
         )
+    }
+
+    private fun applySettings(newSettings: FocusGuardSettings) {
+        settings = newSettings
+        settingsStore.save(newSettings)
+        refreshUsageData()
     }
 
     private fun requestNotificationPermissionIfNeeded() {

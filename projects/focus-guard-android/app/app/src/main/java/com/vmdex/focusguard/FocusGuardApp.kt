@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.vmdex.focusguard.ui.theme.FocusGuardAndroidTheme
@@ -35,8 +37,10 @@ fun FocusGuardApp(
     foregroundAppState: ForegroundAppState,
     currentTimeMillis: Long,
     alertState: AlertState,
+    settings: FocusGuardSettings,
     packageName: String,
-    onRefreshUsageData: () -> Unit
+    onRefreshUsageData: () -> Unit,
+    onSettingsChanged: (FocusGuardSettings) -> Unit
 ) {
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         UsageAccessScreen(
@@ -44,8 +48,10 @@ fun FocusGuardApp(
             foregroundAppState = foregroundAppState,
             currentTimeMillis = currentTimeMillis,
             alertState = alertState,
+            settings = settings,
             packageName = packageName,
             onRefreshUsageData = onRefreshUsageData,
+            onSettingsChanged = onSettingsChanged,
             modifier = Modifier.padding(innerPadding)
         )
     }
@@ -57,8 +63,10 @@ private fun UsageAccessScreen(
     foregroundAppState: ForegroundAppState,
     currentTimeMillis: Long,
     alertState: AlertState,
+    settings: FocusGuardSettings,
     packageName: String,
     onRefreshUsageData: () -> Unit,
+    onSettingsChanged: (FocusGuardSettings) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -100,12 +108,18 @@ private fun UsageAccessScreen(
                 }
             )
 
+            DevSettingsCard(
+                settings = settings,
+                onSettingsChanged = onSettingsChanged
+            )
+
             DevInfoCard(
                 packageName = packageName,
                 hasUsageAccess = hasUsageAccess,
                 foregroundAppState = foregroundAppState,
                 currentTimeMillis = currentTimeMillis,
                 alertState = alertState,
+                settings = settings,
                 onRefreshUsageData = onRefreshUsageData
             )
         }
@@ -163,12 +177,74 @@ private fun PermissionStatusCard(
 }
 
 @Composable
+private fun DevSettingsCard(
+    settings: FocusGuardSettings,
+    onSettingsChanged: (FocusGuardSettings) -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "Dev settings",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            SecondsField(
+                label = "Grace period seconds",
+                value = settings.gracePeriodSeconds,
+                onValueChanged = { seconds ->
+                    onSettingsChanged(settings.copy(gracePeriodMillis = seconds * 1000L))
+                }
+            )
+
+            SecondsField(
+                label = "Session limit seconds",
+                value = settings.sessionLimitSeconds,
+                onValueChanged = { seconds ->
+                    onSettingsChanged(settings.copy(sessionLimitMillis = seconds * 1000L))
+                }
+            )
+
+            Text(
+                text = "Saved locally. Use small values here to test grace period and alert behavior quickly.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun SecondsField(
+    label: String,
+    value: Int,
+    onValueChanged: (Int) -> Unit
+) {
+    OutlinedTextField(
+        value = value.toString(),
+        onValueChange = { text ->
+            text.toIntOrNull()
+                ?.coerceAtLeast(1)
+                ?.let(onValueChanged)
+        },
+        label = { Text(text = label) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number)
+    )
+}
+
+@Composable
 private fun DevInfoCard(
     packageName: String,
     hasUsageAccess: Boolean,
     foregroundAppState: ForegroundAppState,
     currentTimeMillis: Long,
     alertState: AlertState,
+    settings: FocusGuardSettings,
     onRefreshUsageData: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -187,8 +263,8 @@ private fun DevInfoCard(
             DevInfoRow(label = "Own package ignored", value = "true")
             DevInfoRow(label = "Tracked apps", value = TrackedAppPackages.size.toString())
             DevInfoRow(label = "Session strategy", value = "Grace period")
-            DevInfoRow(label = "Grace period", value = formatElapsed(DefaultGracePeriodMillis))
-            DevInfoRow(label = "Session limit", value = formatElapsed(DefaultSessionLimitMillis))
+            DevInfoRow(label = "Grace period", value = formatElapsed(settings.gracePeriodMillis))
+            DevInfoRow(label = "Session limit", value = formatElapsed(settings.sessionLimitMillis))
             Text(
                 text = TrackedAppPackages.joinToString(separator = "\n"),
                 style = MaterialTheme.typography.bodySmall,
@@ -197,7 +273,8 @@ private fun DevInfoCard(
             ForegroundAppRows(foregroundAppState)
             CurrentSessionRows(
                 foregroundAppState = foregroundAppState,
-                currentTimeMillis = currentTimeMillis
+                currentTimeMillis = currentTimeMillis,
+                settings = settings
             )
             AlertRows(alertState)
 
@@ -255,7 +332,8 @@ private fun ForegroundAppRows(foregroundAppState: ForegroundAppState) {
 @Composable
 private fun CurrentSessionRows(
     foregroundAppState: ForegroundAppState,
-    currentTimeMillis: Long
+    currentTimeMillis: Long,
+    settings: FocusGuardSettings
 ) {
     when (foregroundAppState) {
         is ForegroundAppState.Detected -> {
@@ -263,7 +341,7 @@ private fun CurrentSessionRows(
                 foregroundAppState = foregroundAppState,
                 currentTimeMillis = currentTimeMillis
             )
-            val isLimitExceeded = elapsedMillis >= DefaultSessionLimitMillis
+            val isLimitExceeded = elapsedMillis >= settings.sessionLimitMillis
 
             DevInfoRow(label = "Session app", value = foregroundAppState.packageName)
             DevInfoRow(label = "Session started", value = formatTimestamp(foregroundAppState.timestampMillis))
@@ -274,7 +352,7 @@ private fun CurrentSessionRows(
                 foregroundAppState.interruptionStartedAtMillis != null
             ) {
                 val graceElapsed = currentTimeMillis - foregroundAppState.interruptionStartedAtMillis
-                val graceRemaining = DefaultGracePeriodMillis - graceElapsed
+                val graceRemaining = settings.gracePeriodMillis - graceElapsed
 
                 DevInfoRow(label = "Grace remaining", value = formatElapsed(graceRemaining))
             }
@@ -332,8 +410,10 @@ private fun UsageAccessScreenPreview() {
             foregroundAppState = ForegroundAppState.PermissionMissing,
             currentTimeMillis = System.currentTimeMillis(),
             alertState = AlertState(),
+            settings = FocusGuardSettings(),
             packageName = "com.vmdex.focusguard",
-            onRefreshUsageData = {}
+            onRefreshUsageData = {},
+            onSettingsChanged = {}
         )
     }
 }

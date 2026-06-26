@@ -4,7 +4,10 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 
-fun readLatestForegroundApp(context: Context): ForegroundAppState {
+fun readLatestForegroundApp(
+    context: Context,
+    gracePeriodMillis: Long
+): ForegroundAppState {
     val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
     val now = System.currentTimeMillis()
     val start = now - UsageLookupWindowMillis
@@ -49,7 +52,7 @@ fun readLatestForegroundApp(context: Context): ForegroundAppState {
     val sessionStatus = when {
         lastForegroundPackageName == trackedApp.packageName -> SessionStatus.Active
         interruptionStartedAtMillis == null -> SessionStatus.Active
-        now - interruptionStartedAtMillis <= DefaultGracePeriodMillis -> SessionStatus.GracePeriod
+        now - interruptionStartedAtMillis <= gracePeriodMillis -> SessionStatus.GracePeriod
         else -> SessionStatus.Ended
     }
 
