@@ -1,6 +1,8 @@
 package com.vmdex.focusguard
 
 import android.app.AppOpsManager
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -36,21 +38,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.vmdex.focusguard.ui.theme.FocusGuardAndroidTheme
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 class MainActivity : ComponentActivity() {
     private var hasUsageAccess by mutableStateOf(false)
+    private var foregroundAppState by mutableStateOf<ForegroundAppState>(ForegroundAppState.Unknown)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        refreshUsageAccessStatus()
+        refreshUsageData()
 
         setContent {
             FocusGuardAndroidTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     UsageAccessScreen(
                         hasUsageAccess = hasUsageAccess,
+                        foregroundAppState = foregroundAppState,
                         packageName = packageName,
+                        onRefreshUsageData = ::refreshUsageData,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -60,12 +68,28 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        refreshUsageAccessStatus()
+        refreshUsageData()
     }
 
-    private fun refreshUsageAccessStatus() {
+    private fun refreshUsageData() {
         hasUsageAccess = hasUsageAccessPermission(this)
+        foregroundAppState = if (hasUsageAccess) {
+            readLatestForegroundApp(this)
+        } else {
+            ForegroundAppState.PermissionMissing
+        }
     }
+}
+
+private sealed interface ForegroundAppState {
+    data object Unknown : ForegroundAppState
+    data object PermissionMissing : ForegroundAppState
+    data class Detected(
+        val packageName: String,
+        val className: String?,
+        val eventType: Int,
+        val timestampMillis: Long
+    ) : ForegroundAppState
 }
 
 private fun hasUsageAccessPermission(context: Context): Boolean {
@@ -79,10 +103,36 @@ private fun hasUsageAccessPermission(context: Context): Boolean {
     return mode == AppOpsManager.MODE_ALLOWED
 }
 
+private fun readLatestForegroundApp(context: Context): ForegroundAppState {
+    val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+    val now = System.currentTimeMillis()
+    val start = now - UsageLookupWindowMillis
+    val events = usageStatsManager.queryEvents(start, now)
+    val event = UsageEvents.Event()
+    var latestDetected: ForegroundAppState.Detected? = null
+
+    while (events.hasNextEvent()) {
+        events.getNextEvent(event)
+
+        if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+            latestDetected = ForegroundAppState.Detected(
+                packageName = event.packageName ?: "",
+                className = event.className,
+                eventType = event.eventType,
+                timestampMillis = event.timeStamp
+            )
+        }
+    }
+
+    return latestDetected ?: ForegroundAppState.Unknown
+}
+
 @Composable
 private fun UsageAccessScreen(
     hasUsageAccess: Boolean,
+    foregroundAppState: ForegroundAppState,
     packageName: String,
+    onRefreshUsageData: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -118,7 +168,9 @@ private fun UsageAccessScreen(
 
             DevInfoCard(
                 packageName = packageName,
-                hasUsageAccess = hasUsageAccess
+                hasUsageAccess = hasUsageAccess,
+                foregroundAppState = foregroundAppState,
+                onRefreshUsageData = onRefreshUsageData
             )
         }
     }
@@ -180,7 +232,9 @@ private fun PermissionStatusCard(
 @Composable
 private fun DevInfoCard(
     packageName: String,
-    hasUsageAccess: Boolean
+    hasUsageAccess: Boolean,
+    foregroundAppState: ForegroundAppState,
+    onRefreshUsageData: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -195,14 +249,42 @@ private fun DevInfoCard(
 
             DevInfoRow(label = "Package", value = packageName)
             DevInfoRow(label = "Usage access", value = if (hasUsageAccess) "true" else "false")
+            ForegroundAppRows(foregroundAppState)
+
+            Button(
+                onClick = onRefreshUsageData,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "Refresh usage data")
+            }
 
             Spacer(modifier = Modifier.height(2.dp))
 
             Text(
-                text = "Next step: read UsageStatsManager data and show the latest foreground app here.",
+                text = "Usage events can lag slightly and may report the latest foreground transition, not a perfect live app state.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun ForegroundAppRows(foregroundAppState: ForegroundAppState) {
+    when (foregroundAppState) {
+        ForegroundAppState.PermissionMissing -> {
+            DevInfoRow(label = "Detected app", value = "permission missing")
+        }
+
+        ForegroundAppState.Unknown -> {
+            DevInfoRow(label = "Detected app", value = "unknown")
+        }
+
+        is ForegroundAppState.Detected -> {
+            DevInfoRow(label = "Detected app", value = foregroundAppState.packageName)
+            DevInfoRow(label = "Class", value = foregroundAppState.className ?: "-")
+            DevInfoRow(label = "Event", value = eventTypeLabel(foregroundAppState.eventType))
+            DevInfoRow(label = "Event time", value = formatTimestamp(foregroundAppState.timestampMillis))
         }
     }
 }
@@ -227,13 +309,32 @@ private fun DevInfoRow(label: String, value: String) {
     }
 }
 
+private fun eventTypeLabel(eventType: Int): String {
+    return when (eventType) {
+        UsageEvents.Event.MOVE_TO_FOREGROUND -> "MOVE_TO_FOREGROUND"
+        else -> eventType.toString()
+    }
+}
+
+private fun formatTimestamp(timestampMillis: Long): String {
+    return Instant.ofEpochMilli(timestampMillis)
+        .atZone(ZoneId.systemDefault())
+        .format(TimeFormatter)
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun UsageAccessScreenPreview() {
     FocusGuardAndroidTheme {
         UsageAccessScreen(
             hasUsageAccess = false,
-            packageName = "com.vmdex.focusguard"
+            foregroundAppState = ForegroundAppState.PermissionMissing,
+            packageName = "com.vmdex.focusguard",
+            onRefreshUsageData = {}
         )
     }
 }
+
+private const val UsageLookupWindowMillis = 10 * 60 * 1000L
+
+private val TimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
