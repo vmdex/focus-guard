@@ -36,7 +36,7 @@ public sealed class NotificationService
     {
         var toastXml = new XmlDocument();
         toastXml.LoadXml($"""
-            <toast>
+            <toast duration="short">
               <visual>
                 <binding template="ToastGeneric">
                   <text>{SecurityElement.Escape(message)}</text>
@@ -46,6 +46,7 @@ public sealed class NotificationService
             """);
 
         var toast = new ToastNotification(toastXml);
+        toast.ExpirationTime = DateTimeOffset.Now.AddSeconds(2);
         ToastNotificationManager.CreateToastNotifier().Show(toast);
     }
 
