@@ -352,7 +352,7 @@ namespace FocusGuard.Clock.App
             var canStart = hasTimer && status is FocusTimerStatus.Idle or FocusTimerStatus.Completed;
             var canPause = hasTimer && status is FocusTimerStatus.Running;
             var canResume = hasTimer && status is FocusTimerStatus.Paused;
-            var canReset = hasTimer && status is not FocusTimerStatus.Idle;
+            var canReset = hasTimer && status is FocusTimerStatus.Running or FocusTimerStatus.Paused;
 
             DeveloperStartButton.IsEnabled = canStart;
             DeveloperPauseButton.IsEnabled = canPause;
