@@ -21,6 +21,8 @@ public sealed class NotificationService
     private readonly object _soundLock = new();
     private bool _isSoundPlaying;
 
+    public bool IsSoundEnabled { get; set; } = true;
+
     public void ShowTimerTransition(FocusTimerEvent timerEvent)
     {
         var message = timerEvent.Kind switch
@@ -82,6 +84,11 @@ public sealed class NotificationService
 
     private void PlayNotificationSound()
     {
+        if (!IsSoundEnabled)
+        {
+            return;
+        }
+
         if (!File.Exists(NotificationSoundPath))
         {
             return;

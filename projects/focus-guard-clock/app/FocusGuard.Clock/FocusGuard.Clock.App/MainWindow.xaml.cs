@@ -233,6 +233,9 @@ namespace FocusGuard.Clock.App
             FocusPeriodBox.Value = settings.FocusPeriod;
             BreakPeriodBox.Value = settings.BreakPeriod;
             SkipBreaksCheckBox.IsChecked = settings.SkipBreaks;
+            ShowNotificationsToggleSwitch.IsOn = settings.ShowNotifications;
+            PlayNotificationSoundToggleSwitch.IsOn = settings.PlayNotificationSound;
+            ApplyNotificationSettings(settings);
             _isApplyingSettings = false;
         }
 
@@ -242,7 +245,9 @@ namespace FocusGuard.Clock.App
                 TotalDuration: ReadWholeNumber(TotalDurationBox),
                 FocusPeriod: ReadWholeNumber(FocusPeriodBox),
                 BreakPeriod: ReadWholeNumber(BreakPeriodBox),
-                SkipBreaks: SkipBreaksCheckBox.IsChecked == true);
+                SkipBreaks: SkipBreaksCheckBox.IsChecked == true,
+                ShowNotifications: ShowNotificationsToggleSwitch.IsOn,
+                PlayNotificationSound: PlayNotificationSoundToggleSwitch.IsOn);
         }
 
         private static int ReadWholeNumber(NumberBox numberBox)
@@ -326,6 +331,11 @@ namespace FocusGuard.Clock.App
                 return;
             }
 
+            if (!_currentSettings.ShowNotifications)
+            {
+                return;
+            }
+
             foreach (var timerEvent in events)
             {
                 _notificationService.ShowTimerTransition(timerEvent);
@@ -369,6 +379,16 @@ namespace FocusGuard.Clock.App
             }
 
             CalculateAndRenderPlan();
+            ApplyNotificationSettings(_currentSettings);
+        }
+
+        private void ApplyNotificationSettings(ClockSettings settings)
+        {
+            PlayNotificationSoundToggleSwitch.IsEnabled = settings.ShowNotifications;
+            TestBreakNotificationButton.IsEnabled = settings.ShowNotifications;
+            TestFocusNotificationButton.IsEnabled = settings.ShowNotifications;
+            TestFinishedNotificationButton.IsEnabled = settings.ShowNotifications;
+            _notificationService.IsSoundEnabled = settings.ShowNotifications && settings.PlayNotificationSound;
         }
 
         private void ShowFocusSessionPage()
