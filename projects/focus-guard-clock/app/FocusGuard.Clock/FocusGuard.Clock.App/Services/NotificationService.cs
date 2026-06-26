@@ -66,6 +66,7 @@ public sealed class NotificationService
                   <text>{SecurityElement.Escape(message)}</text>
                 </binding>
               </visual>
+              <audio silent="true" />
             </toast>
             """);
 
