@@ -71,6 +71,12 @@ namespace FocusGuard.Clock.App
             SaveSettingsAndRecalculate();
         }
 
+        private void DashboardGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            var isWide = e.NewSize.Width >= 760;
+            ApplyDashboardLayout(isWide);
+        }
+
         private void CalculateAndRenderPlan()
         {
             try
@@ -402,6 +408,41 @@ namespace FocusGuard.Clock.App
         private static string FormatToggleState(bool isOn)
         {
             return isOn ? "On" : "Off";
+        }
+
+        private void ApplyDashboardLayout(bool isWide)
+        {
+            DashboardColumn2.Width = isWide
+                ? new GridLength(1, GridUnitType.Star)
+                : new GridLength(0);
+            DashboardColumn3.Width = isWide
+                ? new GridLength(1, GridUnitType.Star)
+                : new GridLength(0);
+
+            UsedCard.Visibility = isWide ? Visibility.Visible : Visibility.Collapsed;
+            UnusedCard.Visibility = isWide ? Visibility.Visible : Visibility.Collapsed;
+
+            if (isWide)
+            {
+                Grid.SetRow(UsedCard, 0);
+                Grid.SetColumn(UsedCard, 2);
+                Grid.SetRow(UnusedCard, 0);
+                Grid.SetColumn(UnusedCard, 3);
+                Grid.SetRow(CurrentTimerCard, 1);
+                Grid.SetColumn(CurrentTimerCard, 0);
+                Grid.SetRow(DevToolsCard, 1);
+                Grid.SetColumn(DevToolsCard, 2);
+                Grid.SetRow(DeveloperStagesListView, 2);
+                Grid.SetColumnSpan(ErrorTextBlock, 4);
+                return;
+            }
+
+            Grid.SetRow(CurrentTimerCard, 1);
+            Grid.SetColumn(CurrentTimerCard, 0);
+            Grid.SetRow(DevToolsCard, 2);
+            Grid.SetColumn(DevToolsCard, 0);
+            Grid.SetRow(DeveloperStagesListView, 3);
+            Grid.SetColumnSpan(ErrorTextBlock, 2);
         }
 
         private void ShowFocusSessionPage()

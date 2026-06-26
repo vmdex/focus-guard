@@ -65,97 +65,114 @@
                     </StackPanel>
 
                     <Grid
+                        x:Name="DashboardGrid"
                         Grid.Row="2"
-                        RowSpacing="16">
+                        RowSpacing="16"
+                        ColumnSpacing="12"
+                        SizeChanged="DashboardGrid_SizeChanged">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition x:Name="DashboardColumn2" Width="0" />
+                            <ColumnDefinition x:Name="DashboardColumn3" Width="0" />
+                        </Grid.ColumnDefinitions>
 
-                        <Grid ColumnSpacing="12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                        <Border
+                            x:Name="FocusCard"
+                            Grid.Row="0"
+                            Grid.Column="0"
+                            Padding="16"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Focus" Opacity="0.72" />
+                                <TextBlock
+                                    x:Name="DeveloperFocusCountTextBlock"
+                                    FontSize="24"
+                                    FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
 
-                            <Border
-                                Padding="16"
-                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                BorderThickness="1"
-                                CornerRadius="8">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Focus" Opacity="0.72" />
-                                    <TextBlock
-                                        x:Name="DeveloperFocusCountTextBlock"
-                                        FontSize="24"
-                                        FontWeight="SemiBold" />
-                                </StackPanel>
-                            </Border>
+                        <Border
+                            x:Name="BreaksCard"
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            Padding="16"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Breaks" Opacity="0.72" />
+                                <TextBlock
+                                    x:Name="DeveloperBreakCountTextBlock"
+                                    FontSize="24"
+                                    FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
 
-                            <Border
-                                Grid.Column="1"
-                                Padding="16"
-                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                BorderThickness="1"
-                                CornerRadius="8">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Breaks" Opacity="0.72" />
-                                    <TextBlock
-                                        x:Name="DeveloperBreakCountTextBlock"
-                                        FontSize="24"
-                                        FontWeight="SemiBold" />
-                                </StackPanel>
-                            </Border>
+                        <Border
+                            x:Name="UsedCard"
+                            Grid.Row="0"
+                            Grid.Column="0"
+                            Visibility="Collapsed"
+                            Padding="16"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Used" Opacity="0.72" />
+                                <TextBlock
+                                    x:Name="DeveloperUsedDurationTextBlock"
+                                    FontSize="24"
+                                    FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
 
-                            <Border
-                                Grid.Column="2"
-                                Padding="16"
-                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                BorderThickness="1"
-                                CornerRadius="8">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Used" Opacity="0.72" />
-                                    <TextBlock
-                                        x:Name="DeveloperUsedDurationTextBlock"
-                                        FontSize="24"
-                                        FontWeight="SemiBold" />
-                                </StackPanel>
-                            </Border>
-
-                            <Border
-                                Grid.Column="3"
-                                Padding="16"
-                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                BorderThickness="1"
-                                CornerRadius="8">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Unused" Opacity="0.72" />
-                                    <TextBlock
-                                        x:Name="DeveloperUnusedDurationTextBlock"
-                                        FontSize="24"
-                                        FontWeight="SemiBold" />
-                                </StackPanel>
-                            </Border>
-                        </Grid>
+                        <Border
+                            x:Name="UnusedCard"
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            Visibility="Collapsed"
+                            Padding="16"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Unused" Opacity="0.72" />
+                                <TextBlock
+                                    x:Name="DeveloperUnusedDurationTextBlock"
+                                    FontSize="24"
+                                    FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
 
                         <TextBlock
                             x:Name="ErrorTextBlock"
-                            Grid.Row="3"
+                            Grid.Row="4"
+                            Grid.Column="0"
+                            Grid.ColumnSpan="2"
                             Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                             TextWrapping="WrapWholeWords"
                             Visibility="Collapsed" />
 
                         <Border
+                            x:Name="CurrentTimerCard"
                             Grid.Row="1"
+                            Grid.Column="0"
+                            Grid.ColumnSpan="2"
                             Padding="16"
                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -287,7 +304,10 @@
                         </Border>
 
                         <Border
+                            x:Name="DevToolsCard"
                             Grid.Row="2"
+                            Grid.Column="0"
+                            Grid.ColumnSpan="2"
                             Padding="16"
                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -355,7 +375,9 @@
 
                         <ListView
                             x:Name="DeveloperStagesListView"
-                            Grid.Row="4">
+                            Grid.Row="3"
+                            Grid.Column="0"
+                            Grid.ColumnSpan="2">
                             <ListView.Header>
                                 <TextBlock
                                     Text="Stages"
