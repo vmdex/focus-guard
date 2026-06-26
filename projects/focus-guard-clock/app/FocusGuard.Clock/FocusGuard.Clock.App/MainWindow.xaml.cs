@@ -32,6 +32,7 @@ namespace FocusGuard.Clock.App
         {
             InitializeComponent();
             ConfigureTitleBar();
+            RootNavigationView.SelectedItem = FocusSessionNavigationItem;
 
             _timer.Interval = TimeSpan.FromSeconds(1);
             _timer.Tick += Timer_Tick;
@@ -46,14 +47,18 @@ namespace FocusGuard.Clock.App
             SetTitleBar(WindowDragArea);
         }
 
-        private void FocusSessionNavButton_Click(object sender, RoutedEventArgs e)
+        private void RootNavigationView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
         {
-            ShowFocusSessionPage();
-        }
+            if (args.IsSettingsSelected)
+            {
+                ShowSettingsPage();
+                return;
+            }
 
-        private void SettingsNavButton_Click(object sender, RoutedEventArgs e)
-        {
-            ShowSettingsPage();
+            if (args.SelectedItemContainer?.Tag as string == "FocusSession")
+            {
+                ShowFocusSessionPage();
+            }
         }
 
         private void SettingsInput_Changed(object sender, RoutedEventArgs e)

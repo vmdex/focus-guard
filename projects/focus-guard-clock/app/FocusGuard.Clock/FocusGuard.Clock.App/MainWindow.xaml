@@ -14,97 +14,35 @@
     </Window.SystemBackdrop>
 
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="280" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
+        <NavigationView
+            x:Name="RootNavigationView"
+            CompactPaneLength="56"
+            IsBackButtonVisible="Collapsed"
+            IsSettingsVisible="True"
+            OpenPaneLength="280"
+            PaneDisplayMode="Auto"
+            PaneTitle="Focus Guard"
+            SelectionChanged="RootNavigationView_SelectionChanged">
+            <NavigationView.MenuItems>
+                <NavigationViewItem
+                    x:Name="FocusSessionNavigationItem"
+                    Content="Focus session"
+                    Tag="FocusSession">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Clock" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
 
-        <Grid
-            x:Name="WindowDragArea"
-            Grid.ColumnSpan="2"
-            Height="32"
-            Margin="0,0,140,0"
-            VerticalAlignment="Top"
-            Background="Transparent"
-            Canvas.ZIndex="10" />
+            <NavigationView.PaneHeader>
+                <SymbolIcon
+                    Symbol="Admin"
+                    Width="20"
+                    Height="20"
+                    Margin="0,0,8,0" />
+            </NavigationView.PaneHeader>
 
-        <Border
-            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            BorderThickness="0,0,1,0">
-            <Grid Padding="8,16">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="16" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <Grid
-                    x:Name="AppTitleBar"
-                    Height="32"
-                    VerticalAlignment="Top"
-                    Background="Transparent">
-                    <StackPanel
-                    Orientation="Horizontal"
-                    Spacing="12"
-                    Padding="8,0">
-                        <SymbolIcon
-                            Symbol="Admin"
-                            Width="20"
-                            Height="20" />
-                        <TextBlock
-                            Text="Focus Guard"
-                            VerticalAlignment="Center"
-                            FontSize="16"
-                            FontWeight="SemiBold" />
-                    </StackPanel>
-                </Grid>
-
-                <Button
-                    x:Name="FocusSessionNavButton"
-                    Grid.Row="2"
-                    VerticalAlignment="Top"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Stretch"
-                    Click="FocusSessionNavButton_Click">
-                    <StackPanel
-                        Orientation="Horizontal"
-                        Spacing="12">
-                        <SymbolIcon
-                            Symbol="Clock"
-                            Width="20"
-                            Height="20" />
-                        <TextBlock
-                            Text="Focus session"
-                            VerticalAlignment="Center"
-                            FontSize="16" />
-                    </StackPanel>
-                </Button>
-
-                <Button
-                    x:Name="SettingsNavButton"
-                    Grid.Row="3"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Stretch"
-                    Click="SettingsNavButton_Click">
-                    <StackPanel
-                        Orientation="Horizontal"
-                        Spacing="12">
-                        <SymbolIcon
-                            Symbol="Setting"
-                            Width="20"
-                            Height="20" />
-                        <TextBlock
-                            Text="Settings"
-                            VerticalAlignment="Center"
-                            FontSize="16" />
-                    </StackPanel>
-                </Button>
-            </Grid>
-        </Border>
-
-        <Grid Grid.Column="1">
+            <Grid>
             <Grid
                 x:Name="FocusSessionPage"
                 Padding="32">
@@ -608,6 +546,15 @@
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>
-        </Grid>
+            </Grid>
+        </NavigationView>
+
+        <Grid
+            x:Name="WindowDragArea"
+            Height="32"
+            Margin="280,0,140,0"
+            VerticalAlignment="Top"
+            Background="Transparent"
+            Canvas.ZIndex="10" />
     </Grid>
 </Window>
