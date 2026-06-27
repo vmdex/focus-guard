@@ -20,9 +20,6 @@ class MainActivity : ComponentActivity() {
     private var settings by mutableStateOf(FocusGuardSettings())
     private var effectiveSettings by mutableStateOf(FocusGuardSettings())
     private var watcherState by mutableStateOf(WatcherState())
-    private var alertedSessionKey: String? = null
-    private var pendingSettingsChangedAtMillis: Long? = null
-    private lateinit var notifier: FocusGuardNotifier
     private lateinit var settingsStore: FocusGuardSettingsStore
     private lateinit var watcherStateStore: WatcherStateStore
 
@@ -35,8 +32,6 @@ class MainActivity : ComponentActivity() {
         settings = settingsStore.load()
         watcherState = watcherStateStore.load()
         effectiveSettings = settings
-        notifier = FocusGuardNotifier(this)
-        notifier.createLimitChannel()
         requestNotificationPermissionIfNeeded()
         refreshUsageData()
 
@@ -74,97 +69,37 @@ class MainActivity : ComponentActivity() {
         if (!watcherState.isRunning) {
             foregroundAppState = ForegroundAppState.Unknown
             alertState = AlertState()
+            effectiveSettings = settings
             return
         }
 
-        // The UI still drives usage detection while monitoring is on. The service will own this loop later.
-        foregroundAppState = if (hasUsageAccess) {
-            readLatestForegroundApp(this, effectiveSettings.gracePeriodMillis)
-        } else {
-            ForegroundAppState.PermissionMissing
-        }
-
-        applyPendingSettingsIfReady()
-        maybeShowLimitExceededNotification()
-    }
-
-    private fun maybeShowLimitExceededNotification() {
-        // Notify once per session, otherwise the one-second refresh loop would spam the user.
-        if (!watcherState.isRunning) {
-            return
-        }
-
-        val detected = foregroundAppState as? ForegroundAppState.Detected ?: return
-        if (detected.sessionStatus == SessionStatus.Ended) {
-            return
-        }
-
-        val elapsedMillis = calculateSessionElapsedMillis(detected, currentTimeMillis)
-        if (elapsedMillis < effectiveSettings.sessionLimitMillis) {
-            return
-        }
-
-        val sessionKey = detected.sessionKey
-        if (alertedSessionKey == sessionKey) {
-            return
-        }
-
-        val wasSent = notifier.showLimitExceeded(detected.packageName, elapsedMillis)
-        alertedSessionKey = sessionKey
-        alertState = AlertState(
-            wasSent = wasSent,
-            lastAlertTimeMillis = if (wasSent) currentTimeMillis else null,
-            lastAlertPackageName = if (wasSent) detected.packageName else null
-        )
+        foregroundAppState = watcherState.foregroundAppState
+        alertState = watcherState.alertState
+        effectiveSettings = watcherState.effectiveSettings
     }
 
     private fun applySettings(newSettings: FocusGuardSettings) {
         settings = newSettings
         settingsStore.save(newSettings)
-        if (!isSessionInProgress(foregroundAppState)) {
+        if (!watcherState.isRunning) {
             effectiveSettings = newSettings
-            pendingSettingsChangedAtMillis = null
-        } else {
-            pendingSettingsChangedAtMillis = currentTimeMillis
         }
         refreshUsageData()
     }
 
     private fun startMonitoring() {
+        val now = System.currentTimeMillis()
         UsageWatcherService.start(this)
-        watcherState = WatcherState(isRunning = true, lastTickTimeMillis = System.currentTimeMillis())
+        watcherState = WatcherState(isRunning = true, lastTickTimeMillis = now, effectiveSettings = effectiveSettings)
+        watcherStateStore.save(watcherState)
         refreshUsageData()
     }
 
     private fun stopMonitoring() {
         UsageWatcherService.stop(this)
         watcherState = WatcherState(isRunning = false, lastTickTimeMillis = null)
+        watcherStateStore.save(watcherState)
         alertState = AlertState()
-    }
-
-    private fun applyPendingSettingsIfReady() {
-        if (settings == effectiveSettings) {
-            return
-        }
-
-        val pendingSince = pendingSettingsChangedAtMillis
-        val detected = foregroundAppState as? ForegroundAppState.Detected
-        val hasReEnteredTrackedApp = pendingSince != null &&
-            detected != null &&
-            detected.timestampMillis >= pendingSince
-
-        if (isSessionInProgress(foregroundAppState) && !hasReEnteredTrackedApp) {
-            return
-        }
-
-        // Pending settings become effective after the current session ends or after a new tracked-app entry.
-        effectiveSettings = settings
-        pendingSettingsChangedAtMillis = null
-        foregroundAppState = if (hasUsageAccess) {
-            readLatestForegroundApp(this, effectiveSettings.gracePeriodMillis)
-        } else {
-            foregroundAppState
-        }
     }
 
     private fun requestNotificationPermissionIfNeeded() {
