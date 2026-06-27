@@ -45,6 +45,7 @@ fun FocusGuardApp(
     packageName: String,
     onRefreshUsageData: () -> Unit,
     onOpenOverlaySettings: () -> Unit,
+    onResetSession: () -> Unit,
     onStartMonitoring: () -> Unit,
     onStopMonitoring: () -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit
@@ -63,6 +64,7 @@ fun FocusGuardApp(
             packageName = packageName,
             onRefreshUsageData = onRefreshUsageData,
             onOpenOverlaySettings = onOpenOverlaySettings,
+            onResetSession = onResetSession,
             onStartMonitoring = onStartMonitoring,
             onStopMonitoring = onStopMonitoring,
             onSettingsChanged = onSettingsChanged,
@@ -85,6 +87,7 @@ private fun UsageAccessScreen(
     packageName: String,
     onRefreshUsageData: () -> Unit,
     onOpenOverlaySettings: () -> Unit,
+    onResetSession: () -> Unit,
     onStartMonitoring: () -> Unit,
     onStopMonitoring: () -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit,
@@ -157,7 +160,8 @@ private fun UsageAccessScreen(
                 effectiveSettings = effectiveSettings,
                 hasPendingSettings = hasPendingSettings,
                 watcherState = watcherState,
-                onRefreshUsageData = onRefreshUsageData
+                onRefreshUsageData = onRefreshUsageData,
+                onResetSession = onResetSession
             )
         }
     }
@@ -396,7 +400,8 @@ private fun DevInfoCard(
     effectiveSettings: FocusGuardSettings,
     hasPendingSettings: Boolean,
     watcherState: WatcherState,
-    onRefreshUsageData: () -> Unit
+    onRefreshUsageData: () -> Unit,
+    onResetSession: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -440,6 +445,14 @@ private fun DevInfoCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(text = "Refresh usage data")
+            }
+
+            Button(
+                onClick = onResetSession,
+                enabled = watcherState.isRunning,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "Reset session")
             }
 
             Spacer(modifier = Modifier.height(2.dp))
@@ -585,6 +598,7 @@ private fun UsageAccessScreenPreview() {
             packageName = "com.vmdex.focusguard",
             onRefreshUsageData = {},
             onOpenOverlaySettings = {},
+            onResetSession = {},
             onStartMonitoring = {},
             onStopMonitoring = {},
             onSettingsChanged = {}

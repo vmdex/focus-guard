@@ -6,7 +6,8 @@ import android.content.Context
 
 fun readLatestForegroundApp(
     context: Context,
-    gracePeriodMillis: Long
+    gracePeriodMillis: Long,
+    sessionResetTimeMillis: Long? = null
 ): ForegroundAppState {
     val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
     val now = System.currentTimeMillis()
@@ -34,20 +35,22 @@ fun readLatestForegroundApp(
             val shouldStartNewSession = currentSession == null ||
                 currentSession.packageName != foregroundPackageName ||
                 currentSession.isGraceExpired(event.timeStamp, gracePeriodMillis)
+            val activeStartedAtMillis = event.timeStamp.coerceAtLeast(sessionResetTimeMillis ?: event.timeStamp)
 
             session = if (shouldStartNewSession) {
                 TrackedSessionAccumulator(
                     packageName = foregroundPackageName,
                     className = event.className,
                     eventType = event.eventType,
-                    sessionStartedAtMillis = event.timeStamp,
-                    currentActiveStartedAtMillis = event.timeStamp
+                    sessionStartedAtMillis = activeStartedAtMillis,
+                    currentActiveStartedAtMillis = activeStartedAtMillis
                 )
             } else {
                 currentSession.copy(
                     className = event.className,
                     eventType = event.eventType,
-                    currentActiveStartedAtMillis = currentSession.currentActiveStartedAtMillis ?: event.timeStamp,
+                    currentActiveStartedAtMillis = currentSession.currentActiveStartedAtMillis
+                        ?: activeStartedAtMillis,
                     interruptionStartedAtMillis = null
                 )
             }
@@ -68,6 +71,15 @@ fun readLatestForegroundApp(
     val trackedSession = session ?: return lastForegroundPackageName
         ?.let(ForegroundAppState::Untracked)
         ?: ForegroundAppState.Unknown
+    if (sessionResetTimeMillis != null &&
+        trackedSession.currentActiveStartedAtMillis == null &&
+        trackedSession.interruptionStartedAtMillis != null &&
+        trackedSession.interruptionStartedAtMillis < sessionResetTimeMillis
+    ) {
+        return lastForegroundPackageName
+            ?.let(ForegroundAppState::Untracked)
+            ?: ForegroundAppState.Unknown
+    }
     val activeStartedAtMillis = trackedSession.currentActiveStartedAtMillis
     // Grace period keeps short launcher/recents/app-switch interruptions inside one session.
     val sessionStatus = when {

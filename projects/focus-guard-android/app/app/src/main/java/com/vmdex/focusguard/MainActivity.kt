@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
                     packageName = packageName,
                     onRefreshUsageData = ::refreshUsageData,
                     onOpenOverlaySettings = ::openOverlaySettings,
+                    onResetSession = ::resetSession,
                     onStartMonitoring = ::startMonitoring,
                     onStopMonitoring = ::stopMonitoring,
                     onSettingsChanged = ::applySettings
@@ -107,6 +108,16 @@ class MainActivity : ComponentActivity() {
         watcherState = WatcherState(isRunning = false, lastTickTimeMillis = null)
         watcherStateStore.save(watcherState)
         alertState = AlertState()
+    }
+
+    private fun resetSession() {
+        val resetState = watcherStateStore.load().copy(
+            foregroundAppState = ForegroundAppState.Unknown,
+            alertState = AlertState(),
+            sessionResetTimeMillis = System.currentTimeMillis()
+        )
+        watcherStateStore.save(resetState)
+        refreshUsageData()
     }
 
     private fun requestNotificationPermissionIfNeeded() {

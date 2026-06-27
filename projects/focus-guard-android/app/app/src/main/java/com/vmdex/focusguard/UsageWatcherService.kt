@@ -90,8 +90,13 @@ class UsageWatcherService : Service() {
     private fun buildNextWatcherState(): WatcherState {
         val now = System.currentTimeMillis()
         val savedSettings = settingsStore.load()
+        val previousState = stateStore.load()
         val foregroundAppState = if (hasUsageAccessPermission(this)) {
-            readLatestForegroundApp(this, effectiveSettings.gracePeriodMillis)
+            readLatestForegroundApp(
+                context = this,
+                gracePeriodMillis = effectiveSettings.gracePeriodMillis,
+                sessionResetTimeMillis = previousState.sessionResetTimeMillis
+            )
         } else {
             ForegroundAppState.PermissionMissing
         }
@@ -100,7 +105,11 @@ class UsageWatcherService : Service() {
             foregroundAppState = foregroundAppState
         )
         val refreshedForegroundAppState = if (foregroundAppState is ForegroundAppState.Detected) {
-            readLatestForegroundApp(this, effectiveSettings.gracePeriodMillis)
+            readLatestForegroundApp(
+                context = this,
+                gracePeriodMillis = effectiveSettings.gracePeriodMillis,
+                sessionResetTimeMillis = previousState.sessionResetTimeMillis
+            )
         } else {
             foregroundAppState
         }
@@ -111,7 +120,8 @@ class UsageWatcherService : Service() {
             lastTickTimeMillis = now,
             foregroundAppState = refreshedForegroundAppState,
             alertState = alertState,
-            effectiveSettings = effectiveSettings
+            effectiveSettings = effectiveSettings,
+            sessionResetTimeMillis = previousState.sessionResetTimeMillis
         )
     }
 

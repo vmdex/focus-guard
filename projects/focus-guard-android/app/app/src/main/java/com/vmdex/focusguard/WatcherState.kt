@@ -5,5 +5,6 @@ data class WatcherState(
     val lastTickTimeMillis: Long? = null,
     val foregroundAppState: ForegroundAppState = ForegroundAppState.Unknown,
     val alertState: AlertState = AlertState(),
-    val effectiveSettings: FocusGuardSettings = FocusGuardSettings()
+    val effectiveSettings: FocusGuardSettings = FocusGuardSettings(),
+    val sessionResetTimeMillis: Long? = null
 )

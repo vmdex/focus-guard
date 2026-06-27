@@ -13,7 +13,10 @@ class WatcherStateStore(context: Context) {
             lastTickTimeMillis = lastTick.takeIf { it > 0L },
             foregroundAppState = readForegroundAppState(),
             alertState = readAlertState(),
-            effectiveSettings = readEffectiveSettings()
+            effectiveSettings = readEffectiveSettings(),
+            sessionResetTimeMillis = preferences
+                .getLong(SessionResetTimeMillisKey, 0L)
+                .takeIf { it > 0L }
         )
     }
 
@@ -21,6 +24,7 @@ class WatcherStateStore(context: Context) {
         val editor = preferences.edit()
             .putBoolean(IsRunningKey, state.isRunning)
             .putLong(LastTickTimeMillisKey, state.lastTickTimeMillis ?: 0L)
+            .putLong(SessionResetTimeMillisKey, state.sessionResetTimeMillis ?: 0L)
             .putInt(EffectiveGracePeriodSecondsKey, state.effectiveSettings.gracePeriodSeconds)
             .putInt(EffectiveSessionLimitSecondsKey, state.effectiveSettings.sessionLimitSeconds)
             .putInt(EffectiveAlertDelayAfterResumeSecondsKey, state.effectiveSettings.alertDelayAfterResumeSeconds)
@@ -126,6 +130,7 @@ class WatcherStateStore(context: Context) {
 private const val WatcherStateStoreName = "focus_guard_watcher_state"
 private const val IsRunningKey = "is_running"
 private const val LastTickTimeMillisKey = "last_tick_time_millis"
+private const val SessionResetTimeMillisKey = "session_reset_time_millis"
 
 private const val ForegroundStateKindKey = "foreground_state_kind"
 private const val ForegroundStateKindUnknown = "unknown"
