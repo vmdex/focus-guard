@@ -13,6 +13,7 @@ class WatcherStateStore(context: Context) {
             isRunning = preferences.getBoolean(IsRunningKey, false),
             lastTickTimeMillis = lastTick.takeIf { it > 0L },
             foregroundAppState = readForegroundAppState(),
+            usageDebugState = readUsageDebugState(),
             alertState = readAlertState(),
             interventionState = readInterventionState(),
             effectiveSettings = readEffectiveSettings(),
@@ -27,6 +28,18 @@ class WatcherStateStore(context: Context) {
             putBoolean(IsRunningKey, state.isRunning)
             putLong(LastTickTimeMillisKey, state.lastTickTimeMillis ?: 0L)
             putLong(SessionResetTimeMillisKey, state.sessionResetTimeMillis ?: 0L)
+            putLong(UsageQueryStartTimeMillisKey, state.usageDebugState.queryStartTimeMillis ?: 0L)
+            putLong(UsageQueryEndTimeMillisKey, state.usageDebugState.queryEndTimeMillis ?: 0L)
+            putLong(UsageSinceTimeMillisKey, state.usageDebugState.sinceTimeMillis ?: 0L)
+            putString(UsageResolvedForegroundPackageNameKey, state.usageDebugState.resolvedForegroundPackageName)
+            putString(UsageLastForegroundStartPackageNameKey, state.usageDebugState.lastForegroundStartPackageName)
+            putInt(UsageLastForegroundStartEventTypeKey, state.usageDebugState.lastForegroundStartEventType)
+            putLong(
+                UsageLastForegroundStartTimeMillisKey,
+                state.usageDebugState.lastForegroundStartTimeMillis ?: 0L
+            )
+            putInt(UsageTransitionCountKey, state.usageDebugState.transitionCount)
+            putString(UsageRecentRawEventsKey, state.usageDebugState.recentRawEvents.toStoreString())
             putInt(EffectiveGracePeriodSecondsKey, state.effectiveSettings.gracePeriodSeconds)
             putInt(EffectiveSessionLimitSecondsKey, state.effectiveSettings.sessionLimitSeconds)
             putInt(EffectiveAlertDelayAfterResumeSecondsKey, state.effectiveSettings.alertDelayAfterResumeSeconds)
@@ -115,6 +128,37 @@ class WatcherStateStore(context: Context) {
         )
     }
 
+    private fun readUsageDebugState(): UsageDebugState {
+        return UsageDebugState(
+            queryStartTimeMillis = preferences
+                .getLong(UsageQueryStartTimeMillisKey, 0L)
+                .takeIf { it > 0L },
+            queryEndTimeMillis = preferences
+                .getLong(UsageQueryEndTimeMillisKey, 0L)
+                .takeIf { it > 0L },
+            sinceTimeMillis = preferences
+                .getLong(UsageSinceTimeMillisKey, 0L)
+                .takeIf { it > 0L },
+            resolvedForegroundPackageName = preferences.getString(
+                UsageResolvedForegroundPackageNameKey,
+                null
+            ),
+            lastForegroundStartPackageName = preferences.getString(
+                UsageLastForegroundStartPackageNameKey,
+                null
+            ),
+            lastForegroundStartEventType = preferences.getInt(UsageLastForegroundStartEventTypeKey, 0),
+            lastForegroundStartTimeMillis = preferences
+                .getLong(UsageLastForegroundStartTimeMillisKey, 0L)
+                .takeIf { it > 0L },
+            transitionCount = preferences.getInt(UsageTransitionCountKey, 0),
+            recentRawEvents = preferences
+                .getString(UsageRecentRawEventsKey, null)
+                .orEmpty()
+                .toUsageRawEventDebugEntries()
+        )
+    }
+
     private fun readInterventionState(): InterventionState {
         val notificationLeftMillis = preferences
             .getLong(InterventionNotificationLeftMillisKey, 0L)
@@ -151,10 +195,59 @@ class WatcherStateStore(context: Context) {
     }
 }
 
+private fun List<UsageRawEventDebugEntry>.toStoreString(): String {
+    return joinToString(separator = "\n") { event ->
+        listOf(
+            event.timestampMillis.toString(),
+            event.eventType.toString(),
+            event.packageName,
+            event.className.orEmpty()
+        ).joinToString(separator = UsageRawEventFieldSeparator)
+    }
+}
+
+private fun String.toUsageRawEventDebugEntries(): List<UsageRawEventDebugEntry> {
+    if (isBlank()) {
+        return emptyList()
+    }
+
+    return lineSequence()
+        .mapNotNull { line ->
+            val parts = line.split(UsageRawEventFieldSeparator, limit = 4)
+            if (parts.size < 3) {
+                return@mapNotNull null
+            }
+
+            val timestampMillis = parts[0].toLongOrNull() ?: return@mapNotNull null
+            val eventType = parts[1].toIntOrNull() ?: return@mapNotNull null
+            val packageName = parts[2]
+            val className = parts.getOrNull(3)?.takeIf { it.isNotBlank() }
+
+            UsageRawEventDebugEntry(
+                packageName = packageName,
+                className = className,
+                eventType = eventType,
+                timestampMillis = timestampMillis
+            )
+        }
+        .toList()
+}
+
 private const val WatcherStateStoreName = "focus_guard_watcher_state"
 private const val IsRunningKey = "is_running"
 private const val LastTickTimeMillisKey = "last_tick_time_millis"
 private const val SessionResetTimeMillisKey = "session_reset_time_millis"
+
+private const val UsageQueryStartTimeMillisKey = "usage_query_start_time_millis"
+private const val UsageQueryEndTimeMillisKey = "usage_query_end_time_millis"
+private const val UsageSinceTimeMillisKey = "usage_since_time_millis"
+private const val UsageResolvedForegroundPackageNameKey = "usage_resolved_foreground_package_name"
+private const val UsageLastForegroundStartPackageNameKey = "usage_last_foreground_start_package_name"
+private const val UsageLastForegroundStartEventTypeKey = "usage_last_foreground_start_event_type"
+private const val UsageLastForegroundStartTimeMillisKey = "usage_last_foreground_start_time_millis"
+private const val UsageTransitionCountKey = "usage_transition_count"
+private const val UsageRecentRawEventsKey = "usage_recent_raw_events"
+private const val UsageRawEventFieldSeparator = "|"
 
 private const val ForegroundStateKindKey = "foreground_state_kind"
 private const val ForegroundStateKindUnknown = "unknown"

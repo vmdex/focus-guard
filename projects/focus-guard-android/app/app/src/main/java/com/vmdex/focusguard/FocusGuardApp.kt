@@ -705,6 +705,9 @@ private fun DevInfoCard(
             DevInfoSectionTitle(text = "Foreground")
             ForegroundAppRows(foregroundAppState)
 
+            DevInfoSectionTitle(text = "Usage events")
+            UsageDebugRows(watcherState.usageDebugState)
+
             DevInfoSectionTitle(text = "Session")
             DevInfoRow(
                 label = "Reset session time",
@@ -784,6 +787,56 @@ private fun InterventionRows(interventionState: InterventionState) {
         value = interventionState.notificationLeftMillis?.let(::formatElapsed) ?: "-"
     )
     DevInfoRow(label = "Intervention session", value = interventionState.sessionKey ?: "-")
+}
+
+@Composable
+private fun UsageDebugRows(usageDebugState: UsageDebugState) {
+    DevInfoRow(
+        label = "Query start",
+        value = usageDebugState.queryStartTimeMillis?.let(::formatTimestamp) ?: "-"
+    )
+    DevInfoRow(
+        label = "Query end",
+        value = usageDebugState.queryEndTimeMillis?.let(::formatTimestamp) ?: "-"
+    )
+    DevInfoRow(
+        label = "Since time",
+        value = usageDebugState.sinceTimeMillis?.let(::formatTimestamp) ?: "-"
+    )
+    DevInfoRow(label = "Transitions", value = usageDebugState.transitionCount.toString())
+    DevInfoRow(
+        label = "Resolved foreground",
+        value = usageDebugState.resolvedForegroundPackageName ?: "-"
+    )
+    DevInfoRow(
+        label = "Last fg start app",
+        value = usageDebugState.lastForegroundStartPackageName ?: "-"
+    )
+    DevInfoRow(
+        label = "Last fg start event",
+        value = if (usageDebugState.lastForegroundStartEventType != 0) {
+            eventTypeLabel(usageDebugState.lastForegroundStartEventType)
+        } else {
+            "-"
+        }
+    )
+    DevInfoRow(
+        label = "Last fg start time",
+        value = usageDebugState.lastForegroundStartTimeMillis?.let(::formatTimestamp) ?: "-"
+    )
+
+    Text(
+        text = "Recent raw events",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Text(
+        text = usageDebugState.recentRawEvents
+            .joinToString(separator = "\n") { event -> event.debugLabel() }
+            .ifBlank { "-" },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }
 
 @Composable
@@ -884,6 +937,15 @@ private fun DevInfoRow(label: String, value: String) {
 
 private fun eventTypeLabel(eventType: Int): String {
     return usageEventTypeLabel(eventType)
+}
+
+private fun UsageRawEventDebugEntry.debugLabel(): String {
+    val classSuffix = className?.substringAfterLast('.')?.let { " / $it" }.orEmpty()
+    return "${formatTimestamp(timestampMillis)}  ${shortDebugPackageName(packageName)}  ${eventTypeLabel(eventType)}$classSuffix"
+}
+
+private fun shortDebugPackageName(packageName: String): String {
+    return packageName.substringAfterLast('.')
 }
 
 private fun sessionStatusLabel(sessionStatus: SessionStatus): String {

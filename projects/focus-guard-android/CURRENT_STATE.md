@@ -1,6 +1,6 @@
 # Focus Guard Android Current State
 
-Last updated: 2026-06-27
+Last updated: 2026-06-28
 
 This document is the recovery point for future Codex chats after context compaction.
 It should be updated only when the user asks to capture the current state.
@@ -44,6 +44,10 @@ FocusGuardSettings.kt
 FocusGuardSettingsStore.kt
 FocusGuardNotifier.kt
 OverlayPermission.kt
+InstalledAppProvider.kt
+TrackedAppsStore.kt
+DebugSettings.kt
+DebugSettingsStore.kt
 ```
 
 ## Current architecture
@@ -53,6 +57,8 @@ Monitoring is owned by `UsageWatcherService`, not by `MainActivity`.
 `MainActivity`:
 
 - loads saved settings and watcher snapshot;
+- loads debug settings and selected tracked apps;
+- loads launchable apps for app selection UI;
 - starts/stops `UsageWatcherService`;
 - resumes the service when the saved state says monitoring is on;
 - renders the Compose prototype UI.
@@ -83,6 +89,7 @@ Foreground-start detection uses:
 `UsageWatcherService` now acts mostly as wiring:
 
 - reads settings/state/session stores;
+- reads selected tracked apps from `TrackedAppsStore`;
 - reads foreground transitions;
 - calls `SessionEngine`;
 - persists the returned session;
@@ -109,16 +116,13 @@ Service lifecycle teardown does not mean user stop. `UsageWatcherService.onDestr
 
 Current strategy: Grace period.
 
-Tracked apps are still hardcoded in `TrackedAppPackages` inside `FocusGuardSettings.kt`.
+Tracked apps are configurable in the app UI and persisted by `TrackedAppsStore`.
 
-Current tracked packages:
+The selection list is built from launchable apps only through `InstalledAppProvider`.
 
-```text
-com.google.android.youtube
-com.android.chrome
-com.chrome.beta
-tv.twitch.android.app
-```
+By default, no apps are selected. The user chooses apps through the `Choose apps` screen.
+
+The app still ignores its own package (`com.vmdex.focusguard`) even if it is accidentally selected.
 
 Foreground states:
 
@@ -166,6 +170,12 @@ During `GracePeriod`, the session is still alive, but `sessionElapsedMillis` is 
 - returning before grace expires continues the same session;
 - not returning before grace expires ends the session.
 
+Recent recents/foreground behavior:
+
+- if the session is in `GracePeriod` and the latest foreground snapshot directly reports the same tracked app again, the session resumes as `Active`;
+- the app does not use the aggressive fallback “launcher went to background, so previous tracked app must be active” because that caused false `Active` state when returning to Focus Guard itself;
+- known remaining edge case: Android may fail to report a fresh foreground event after some recents flows, so `Chrome -> recents -> Chrome` and `Focus Guard -> recents -> Focus Guard` still need more investigation.
+
 ## Alert rules
 
 Limit alert is allowed only when the tracked app is currently active.
@@ -204,7 +214,7 @@ This is the first small split between alert history and intervention status. It 
 
 ## Debug overlay
 
-The app has a floating debug overlay while monitoring is enabled.
+The app has an optional floating debug overlay while monitoring is enabled.
 
 Android still requires the foreground service notification; the overlay is an additional visible debugging aid, not a replacement for the foreground notification.
 
@@ -246,6 +256,44 @@ Notification sent
 
 The overlay is draggable.
 
+The debug overlay is controlled by:
+
+```text
+Debug settings -> Floating debug window
+```
+
+The label in the UI is currently:
+
+```text
+Float window
+```
+
+## Session timer overlay
+
+The app also has an optional user-facing session timer overlay.
+
+It is shown only when:
+
+- monitoring is enabled;
+- the setting is enabled;
+- the current foreground app is the tracked app for the active session;
+- overlay permission is granted.
+
+The timer is a draggable circular overlay.
+
+Time format:
+
+```text
+mm:ss before one hour
+hh:mm:ss after one hour
+```
+
+The setting is currently:
+
+```text
+Debug settings -> Show session timer
+```
+
 ## Current UI
 
 The current UI is a developer-friendly Compose prototype.
@@ -253,16 +301,33 @@ The current UI is a developer-friendly Compose prototype.
 Main visible cards:
 
 - Usage Access;
-- Floating debug window;
+- Focus settings;
+- Tracked apps;
 - Monitoring;
 - Dev settings;
 - Dev info.
 
-Dev settings currently include:
+Focus settings currently include:
 
 - grace period seconds;
 - session limit seconds;
 - alert delay after resume seconds.
+
+The numeric fields allow clearing while editing. If the user leaves a field empty, the last valid value is restored instead of forcing a digit while typing.
+
+Tracked apps card:
+
+- shows `N tracking apps`;
+- opens `Choose apps`;
+- selected apps are persisted only when the user taps the top check/save action;
+- Back/swipe returns without applying draft changes;
+- when search is empty, selected apps stay pinned at the top;
+- while searching, results are filtered alphabetically by app name.
+
+Dev settings currently include:
+
+- Floating debug window / Float window;
+- Show session timer.
 
 Dev info is grouped into sections:
 
@@ -294,20 +359,25 @@ After reset:
 
 `sessionResetTimeMillis` is now only a safety cutoff for the no-session bootstrap path, not the main session memory mechanism.
 
-## Deferred UI: choose tracked apps
+## Tracked apps UI
 
-Configurable tracked apps are intentionally postponed until UI work.
+Configurable tracked apps are implemented for the prototype.
 
-Current note in `CONCEPT.md`:
+Current behavior:
 
-- add a `Choose apps` action;
-- show `N tracking apps` above it;
-- list launchable apps only;
-- show app names with checkboxes;
-- search filters by app name;
-- selected apps are pinned at the top only when search is empty;
-- checkmark applies changes and returns to the previous screen;
-- Back/swipe returns without applying changes.
+- `Choose apps` opens a selection screen;
+- only launchable apps are listed;
+- rows show app name only, no package name;
+- every row has a checkbox;
+- no apps are selected by default;
+- when search is empty, selected apps are pinned at the top and the rest are sorted A-Z;
+- when search has text, the list shows only matching app names sorted alphabetically;
+- tapping the top save/check action applies the draft and returns to the previous screen;
+- if nothing changed, tapping the check action simply returns;
+- Back/swipe returns without applying draft changes;
+- if an active app is removed from tracked apps and saved, the current session stops being tracked.
+
+Future statistics/history should still be able to show old history for an app even after the app is no longer tracked.
 
 ## Battery and performance direction
 
@@ -329,12 +399,11 @@ Current direction:
 
 Recommended next technical step:
 
-- test the new persisted session memory on the Pixel 7 and fix any lifecycle/foreground edge cases;
-- then consider reducing polling frequency for untracked apps and other battery-friendly behavior.
+- continue investigating recents/foreground edge cases on Pixel 7, especially where Android does not report a fresh foreground event after returning from recents;
+- decide whether the timer overlay should use a different foreground source or a more explicit “currently visible tracked app” signal.
 
 Other planned work:
 
-- configurable tracked apps UI;
 - statistics/history for tracked apps;
 - stronger process-restart behavior;
 - battery optimization strategy;
@@ -354,6 +423,7 @@ The tests simulate foreground transitions and timestamps directly. Covered scena
 - session elapsed grows only while a tracked app is active;
 - grace freezes elapsed;
 - returning before grace expires continues the session;
+- returning from recents resumes the session when the latest foreground snapshot directly reports the tracked app again;
 - grace expiry ends the session;
 - limit alert fires once per session;
 - alert waits for `alertDelayAfterResumeMillis` after returning;
@@ -363,6 +433,8 @@ The tests simulate foreground transitions and timestamps directly. Covered scena
 - sessions stay stable across interruption/grace return and do not count untracked time;
 - effective settings stay attached to an existing session;
 - no previous session with tracked foreground starts fresh at the current time.
+- configurable tracked app selection ordering/search behavior;
+- session timer format uses `mm:ss` before one hour and `hh:mm:ss` after one hour.
 
 Useful manual test settings:
 
@@ -402,17 +474,19 @@ Both `testDebugUnitTest` and `assembleDebug` passed after the recent cleanup. Do
 Recent Android commits include:
 
 ```text
+238786c Resume session from latest tracked foreground
+48d7a49 Add session timer overlay
+c99de42 Add floating debug window setting
+0cd8960 Rename dev settings to focus settings
+e7231c3 Move monitoring card below tracked apps
+58968d7 Allow clearing Android settings fields while editing
+4b97747 Reorder Android main screen cards
+5787fe2 Keep choose apps order stable while editing
+7935c69 Add configurable tracked apps UI
+f7df1f8 Expand Android intervention tests
+a8670e8 Split Android alert and intervention state
 7f1c35d Address Android IDE cleanup suggestions
 6ded2b1 Modernize Android foreground usage events
-3e7efd0 Persist Android session memory
-7ce958d Document Android current state
-3af0ece Group Android dev info sections
-ebf4e95 Expand Android session debug info
-1e84905 Resume Android monitoring after app restart
-c901319 Add Android dev session reset
-eb22452 Refine Android debug overlay status
-5464825 Add Android monitoring debug overlay
-3ae033d Refine Android grace alert timing
 ```
 
 Earlier Android commits include:
