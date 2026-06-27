@@ -175,6 +175,12 @@ private fun UsageAccessScreen(
                 onChooseApps = onChooseApps
             )
 
+            MonitoringCard(
+                watcherState = watcherState,
+                onStartMonitoring = onStartMonitoring,
+                onStopMonitoring = onStopMonitoring
+            )
+
             PermissionStatusCard(
                 hasUsageAccess = hasUsageAccess,
                 onOpenSettings = {
@@ -185,12 +191,6 @@ private fun UsageAccessScreen(
             OverlayStatusCard(
                 hasOverlayAccess = hasOverlayAccess,
                 onOpenSettings = onOpenOverlaySettings
-            )
-
-            MonitoringCard(
-                watcherState = watcherState,
-                onStartMonitoring = onStartMonitoring,
-                onStopMonitoring = onStopMonitoring
             )
 
             DevInfoCard(
