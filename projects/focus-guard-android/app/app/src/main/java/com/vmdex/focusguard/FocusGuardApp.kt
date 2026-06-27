@@ -414,36 +414,46 @@ private fun DevInfoCard(
                 fontWeight = FontWeight.SemiBold
             )
 
+            DevInfoSectionTitle(text = "App")
             DevInfoRow(label = "Package", value = packageName)
             DevInfoRow(label = "Usage access", value = if (hasUsageAccess) "true" else "false")
             DevInfoRow(label = "Own package ignored", value = "true")
             DevInfoRow(label = "Tracked apps", value = TrackedAppPackages.size.toString())
+            Text(
+                text = TrackedAppPackages.joinToString(separator = "\n"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            DevInfoSectionTitle(text = "Settings")
             DevInfoRow(label = "Session strategy", value = "Grace period")
             DevInfoRow(label = "Pending settings", value = hasPendingSettings.toString())
-            DevInfoRow(
-                label = "Reset session time",
-                value = watcherState.sessionResetTimeMillis?.let(::formatTimestamp) ?: "-"
-            )
             DevInfoRow(label = "Grace period", value = formatElapsed(effectiveSettings.gracePeriodMillis))
             DevInfoRow(label = "Session limit", value = formatElapsed(effectiveSettings.sessionLimitMillis))
             DevInfoRow(
                 label = "Alert delay after resume",
                 value = formatElapsed(effectiveSettings.alertDelayAfterResumeMillis)
             )
-            Text(
-                text = TrackedAppPackages.joinToString(separator = "\n"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+
+            DevInfoSectionTitle(text = "Foreground")
             ForegroundAppRows(foregroundAppState)
+
+            DevInfoSectionTitle(text = "Session")
+            DevInfoRow(
+                label = "Reset session time",
+                value = watcherState.sessionResetTimeMillis?.let(::formatTimestamp) ?: "-"
+            )
             CurrentSessionRows(
                 foregroundAppState = foregroundAppState,
                 currentTimeMillis = currentTimeMillis,
                 settings = effectiveSettings,
                 alertState = alertState
             )
+
+            DevInfoSectionTitle(text = "Alerts")
             AlertRows(alertState)
 
+            DevInfoSectionTitle(text = "Actions")
             Button(
                 onClick = onRefreshUsageData,
                 enabled = watcherState.isRunning,
@@ -469,6 +479,17 @@ private fun DevInfoCard(
             )
         }
     }
+}
+
+@Composable
+private fun DevInfoSectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 8.dp)
+    )
 }
 
 @Composable
