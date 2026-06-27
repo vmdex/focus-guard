@@ -48,7 +48,9 @@ class UsageWatcherService : Service() {
         settingsStore = FocusGuardSettingsStore(this)
         notifier = FocusGuardNotifier(this)
         windowManager = getSystemService(WindowManager::class.java)
-        effectiveSettings = stateStore.load().effectiveSettings
+        val savedState = stateStore.load()
+        effectiveSettings = savedState.effectiveSettings
+        alertedSessionKey = savedState.alertState.alertedSessionKey
         createMonitoringChannel()
         notifier.createLimitChannel()
     }
@@ -163,7 +165,8 @@ class UsageWatcherService : Service() {
             AlertState(
                 wasSent = true,
                 lastAlertTimeMillis = currentTimeMillis,
-                lastAlertPackageName = detected.packageName
+                lastAlertPackageName = detected.packageName,
+                alertedSessionKey = detected.sessionKey
             )
         } else {
             previousAlertState

@@ -31,6 +31,7 @@ class WatcherStateStore(context: Context) {
             .putBoolean(AlertWasSentKey, state.alertState.wasSent)
             .putLong(AlertLastTimeMillisKey, state.alertState.lastAlertTimeMillis ?: 0L)
             .putString(AlertLastPackageNameKey, state.alertState.lastAlertPackageName)
+            .putString(AlertedSessionKeyKey, state.alertState.alertedSessionKey)
 
         when (val foregroundState = state.foregroundAppState) {
             ForegroundAppState.PermissionMissing -> {
@@ -105,7 +106,8 @@ class WatcherStateStore(context: Context) {
         return AlertState(
             wasSent = preferences.getBoolean(AlertWasSentKey, false),
             lastAlertTimeMillis = lastAlertTime.takeIf { it > 0L },
-            lastAlertPackageName = preferences.getString(AlertLastPackageNameKey, null)
+            lastAlertPackageName = preferences.getString(AlertLastPackageNameKey, null),
+            alertedSessionKey = preferences.getString(AlertedSessionKeyKey, null)
         )
     }
 
@@ -151,6 +153,7 @@ private const val ForegroundCurrentActiveElapsedMillisKey = "foreground_current_
 private const val AlertWasSentKey = "alert_was_sent"
 private const val AlertLastTimeMillisKey = "alert_last_time_millis"
 private const val AlertLastPackageNameKey = "alert_last_package_name"
+private const val AlertedSessionKeyKey = "alerted_session_key"
 
 private const val EffectiveGracePeriodSecondsKey = "effective_grace_period_seconds"
 private const val EffectiveSessionLimitSecondsKey = "effective_session_limit_seconds"

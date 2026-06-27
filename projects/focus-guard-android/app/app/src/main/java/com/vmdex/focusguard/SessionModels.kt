@@ -3,7 +3,8 @@ package com.vmdex.focusguard
 data class AlertState(
     val wasSent: Boolean = false,
     val lastAlertTimeMillis: Long? = null,
-    val lastAlertPackageName: String? = null
+    val lastAlertPackageName: String? = null,
+    val alertedSessionKey: String? = null
 )
 
 sealed interface ForegroundAppState {

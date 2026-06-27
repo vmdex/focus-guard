@@ -420,6 +420,10 @@ private fun DevInfoCard(
             DevInfoRow(label = "Tracked apps", value = TrackedAppPackages.size.toString())
             DevInfoRow(label = "Session strategy", value = "Grace period")
             DevInfoRow(label = "Pending settings", value = hasPendingSettings.toString())
+            DevInfoRow(
+                label = "Reset session time",
+                value = watcherState.sessionResetTimeMillis?.let(::formatTimestamp) ?: "-"
+            )
             DevInfoRow(label = "Grace period", value = formatElapsed(effectiveSettings.gracePeriodMillis))
             DevInfoRow(label = "Session limit", value = formatElapsed(effectiveSettings.sessionLimitMillis))
             DevInfoRow(
@@ -435,7 +439,8 @@ private fun DevInfoCard(
             CurrentSessionRows(
                 foregroundAppState = foregroundAppState,
                 currentTimeMillis = currentTimeMillis,
-                settings = effectiveSettings
+                settings = effectiveSettings,
+                alertState = alertState
             )
             AlertRows(alertState)
 
@@ -470,6 +475,7 @@ private fun DevInfoCard(
 private fun AlertRows(alertState: AlertState) {
     DevInfoRow(label = "Alert sent", value = alertState.wasSent.toString())
     DevInfoRow(label = "Last alert app", value = alertState.lastAlertPackageName ?: "-")
+    DevInfoRow(label = "Alerted session key", value = alertState.alertedSessionKey ?: "-")
     DevInfoRow(
         label = "Last alert time",
         value = alertState.lastAlertTimeMillis?.let(::formatTimestamp) ?: "-"
@@ -508,7 +514,8 @@ private fun ForegroundAppRows(foregroundAppState: ForegroundAppState) {
 private fun CurrentSessionRows(
     foregroundAppState: ForegroundAppState,
     currentTimeMillis: Long,
-    settings: FocusGuardSettings
+    settings: FocusGuardSettings,
+    alertState: AlertState
 ) {
     when (foregroundAppState) {
         is ForegroundAppState.Detected -> {
@@ -519,6 +526,11 @@ private fun CurrentSessionRows(
             val isLimitExceeded = elapsedMillis >= settings.sessionLimitMillis
 
             DevInfoRow(label = "Session app", value = foregroundAppState.packageName)
+            DevInfoRow(label = "Session key", value = foregroundAppState.sessionKey)
+            DevInfoRow(
+                label = "Alert sent for session",
+                value = (alertState.alertedSessionKey == foregroundAppState.sessionKey).toString()
+            )
             DevInfoRow(label = "Session started", value = formatTimestamp(foregroundAppState.timestampMillis))
             DevInfoRow(label = "Session elapsed", value = formatElapsed(elapsedMillis))
             DevInfoRow(
