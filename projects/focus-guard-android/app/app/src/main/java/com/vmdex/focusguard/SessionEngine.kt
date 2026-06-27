@@ -10,7 +10,7 @@ class SessionEngine(
         savedSettings: FocusGuardSettings,
         currentTimeMillis: Long
     ): SessionEngineResult {
-        var session = previousSession
+        var session = previousSession?.stopIfNoLongerTracked(currentTimeMillis, snapshot.lastForegroundPackageName)
 
         for (transition in snapshot.transitions.sortedBy { it.timestampMillis }) {
             session = advanceSessionClock(session, transition.timestampMillis)
@@ -156,6 +156,23 @@ class SessionEngine(
 
     private fun String.isTrackedApp(): Boolean {
         return this != ignoredPackageName && this in trackedAppPackages
+    }
+
+    private fun PersistedSessionState.stopIfNoLongerTracked(
+        currentTimeMillis: Long,
+        lastForegroundPackageName: String?
+    ): PersistedSessionState {
+        if (packageName.isTrackedApp()) {
+            return this
+        }
+
+        return copy(
+            status = SessionStatus.Ended,
+            currentActiveStartedAtMillis = null,
+            interruptionStartedAtMillis = null,
+            lastForegroundPackageName = lastForegroundPackageName ?: this.lastForegroundPackageName,
+            lastUpdatedTimeMillis = currentTimeMillis
+        )
     }
 }
 

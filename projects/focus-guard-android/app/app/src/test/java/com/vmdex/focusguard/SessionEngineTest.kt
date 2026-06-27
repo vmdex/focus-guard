@@ -210,6 +210,105 @@ class SessionEngineTest {
         assertNull(result.limitAlertRequest)
     }
 
+    // Перевіряємо, що перехід з одного tracked app в інший стартує нову session.
+    @Test
+    fun switchingToAnotherTrackedAppStartsNewSession() {
+        val engineWithTwoTrackedApps = SessionEngine(
+            trackedAppPackages = setOf(ChromePackage, TwitchPackage),
+            ignoredPackageName = FocusGuardPackage
+        )
+
+        val result = engineWithTwoTrackedApps.buildNextSession(
+            previousSession = null,
+            snapshot = snapshot(
+                lastForegroundPackageName = TwitchPackage,
+                transition(ChromePackage, 1_000L),
+                transition(TwitchPackage, 4_000L)
+            ),
+            savedSettings = settings,
+            currentTimeMillis = 5_000L
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(TwitchPackage, session.packageName)
+        assertEquals(4_000L, session.sessionStartedAtMillis)
+        assertEquals(1_000L, session.sessionElapsedMillis)
+    }
+
+    // Перевіряємо, що Focus Guard не трекається сам себе, навіть якщо випадково є у tracked packages.
+    @Test
+    fun ignoredPackageDoesNotStartSession() {
+        val engineWithSelfInTrackedApps = SessionEngine(
+            trackedAppPackages = setOf(FocusGuardPackage),
+            ignoredPackageName = FocusGuardPackage
+        )
+
+        val result = engineWithSelfInTrackedApps.buildNextSession(
+            previousSession = null,
+            snapshot = snapshot(
+                lastForegroundPackageName = FocusGuardPackage,
+                transition(FocusGuardPackage, 1_000L)
+            ),
+            savedSettings = settings,
+            currentTimeMillis = 3_000L
+        )
+
+        assertNull(result.session)
+        assertNull(result.limitAlertRequest)
+    }
+
+    // Перевіряємо, що transitions обробляються за timestamp, навіть якщо прийшли не по порядку.
+    @Test
+    fun unorderedTransitionsAreSortedByTimestamp() {
+        val result = engine.buildNextSession(
+            previousSession = null,
+            snapshot = snapshot(
+                lastForegroundPackageName = LauncherPackage,
+                transition(LauncherPackage, 4_000L),
+                transition(ChromePackage, 1_000L)
+            ),
+            savedSettings = settings,
+            currentTimeMillis = 7_000L
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(SessionStatus.GracePeriod, session.status)
+        assertEquals(3_000L, session.sessionElapsedMillis)
+        assertEquals(4_000L, session.interruptionStartedAtMillis)
+    }
+
+    // Перевіряємо, що якщо app прибрали з tracked packages, його active session більше не продовжується.
+    @Test
+    fun removingAppFromTrackedPackagesEndsExistingSession() {
+        val activeSession = requireNotNull(
+            engine.buildNextSession(
+                previousSession = null,
+                snapshot = snapshot(
+                    lastForegroundPackageName = ChromePackage,
+                    transition(ChromePackage, 1_000L)
+                ),
+                savedSettings = settings,
+                currentTimeMillis = 3_000L
+            ).session
+        )
+        val engineWithoutTrackedApps = SessionEngine(
+            trackedAppPackages = emptySet(),
+            ignoredPackageName = FocusGuardPackage
+        )
+
+        val result = engineWithoutTrackedApps.buildNextSession(
+            previousSession = activeSession,
+            snapshot = snapshot(lastForegroundPackageName = ChromePackage),
+            savedSettings = settings,
+            currentTimeMillis = 5_000L
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(SessionStatus.Ended, session.status)
+        assertEquals(2_000L, session.sessionElapsedMillis)
+        assertNull(result.limitAlertRequest)
+    }
+
     private fun snapshot(
         lastForegroundPackageName: String?,
         vararg transitions: ForegroundTransition
@@ -233,5 +332,6 @@ class SessionEngineTest {
         const val ChromePackage = "com.android.chrome"
         const val FocusGuardPackage = "com.vmdex.focusguard"
         const val LauncherPackage = "com.android.launcher"
+        const val TwitchPackage = "tv.twitch.android.app"
     }
 }
