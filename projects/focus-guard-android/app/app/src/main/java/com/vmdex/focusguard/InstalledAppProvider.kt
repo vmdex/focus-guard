@@ -41,7 +41,7 @@ class InstalledAppProvider(private val context: Context) {
 
 fun visibleAppsForSelection(
     apps: List<LaunchableApp>,
-    selectedPackages: Set<String>,
+    pinnedPackages: Set<String>,
     searchText: String
 ): List<LaunchableApp> {
     val query = searchText.trim()
@@ -53,7 +53,7 @@ fun visibleAppsForSelection(
     }
 
     return apps.sortedWith(
-        compareByDescending<LaunchableApp> { it.packageName in selectedPackages }
+        compareByDescending<LaunchableApp> { it.packageName in pinnedPackages }
             .thenBy(String.CASE_INSENSITIVE_ORDER) { it.appName }
     )
 }

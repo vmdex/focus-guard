@@ -9,7 +9,7 @@ class ChooseAppsTest {
     fun selectedAppsArePinnedFirstWhenSearchIsEmpty() {
         val visibleApps = visibleAppsForSelection(
             apps = apps,
-            selectedPackages = setOf(ChromePackage),
+            pinnedPackages = setOf(ChromePackage),
             searchText = ""
         )
 
@@ -24,7 +24,7 @@ class ChooseAppsTest {
     fun searchFiltersSelectedAppsToo() {
         val visibleApps = visibleAppsForSelection(
             apps = apps,
-            selectedPackages = setOf(ChromePackage),
+            pinnedPackages = setOf(ChromePackage),
             searchText = "you"
         )
 
@@ -32,6 +32,44 @@ class ChooseAppsTest {
             listOf("YouTube"),
             visibleApps.map { it.appName }
         )
+    }
+
+    // Перевіряємо, що зняття галочки не змінює порядок поточного списку.
+    @Test
+    fun uncheckingPinnedAppDoesNotMoveItDuringCurrentEdit() {
+        val visibleApps = visibleAppsForSelection(
+            apps = apps,
+            pinnedPackages = setOf(ChromePackage),
+            searchText = ""
+        )
+
+        assertEquals(
+            listOf("Chrome", "Calculator", "YouTube"),
+            visibleApps.map { it.appName }
+        )
+    }
+
+    // Перевіряємо, що після очищення пошуку повертається порядок, який був до пошуку.
+    @Test
+    fun clearingSearchRestoresInitialPinnedOrder() {
+        val beforeSearch = visibleAppsForSelection(
+            apps = apps,
+            pinnedPackages = setOf(ChromePackage),
+            searchText = ""
+        )
+        val duringSearch = visibleAppsForSelection(
+            apps = apps,
+            pinnedPackages = setOf(ChromePackage),
+            searchText = "you"
+        )
+        val afterSearch = visibleAppsForSelection(
+            apps = apps,
+            pinnedPackages = setOf(ChromePackage),
+            searchText = ""
+        )
+
+        assertEquals(listOf("YouTube"), duringSearch.map { it.appName })
+        assertEquals(beforeSearch, afterSearch)
     }
 
     private companion object {

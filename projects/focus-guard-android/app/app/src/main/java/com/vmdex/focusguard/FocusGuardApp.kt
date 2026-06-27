@@ -223,10 +223,11 @@ private fun ChooseAppsScreen(
     var draftSelectedPackages by remember(selectedTrackedPackages) {
         mutableStateOf(selectedTrackedPackages)
     }
+    val pinnedPackages = remember(selectedTrackedPackages) { selectedTrackedPackages }
     val hasChanges = draftSelectedPackages != selectedTrackedPackages
     val visibleApps = visibleAppsForSelection(
         apps = launchableApps,
-        selectedPackages = draftSelectedPackages,
+        pinnedPackages = pinnedPackages,
         searchText = searchText
     )
 
