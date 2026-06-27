@@ -1,0 +1,237 @@
+package com.vmdex.focusguard
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+class SessionEngineTest {
+    private val engine = SessionEngine(
+        trackedAppPackages = setOf(ChromePackage),
+        ignoredPackageName = FocusGuardPackage
+    )
+
+    private val settings = FocusGuardSettings(
+        sessionLimitMillis = 5_000L,
+        gracePeriodMillis = 10_000L,
+        alertDelayAfterResumeMillis = 2_000L
+    )
+
+    // Перевіряємо, що session elapsed росте тільки поки tracked app активний.
+    @Test
+    fun sessionElapsedGrowsOnlyWhileTrackedAppIsActive() {
+        val result = engine.buildNextSession(
+            previousSession = null,
+            snapshot = snapshot(
+                lastForegroundPackageName = LauncherPackage,
+                transition(ChromePackage, 1_000L),
+                transition(LauncherPackage, 4_000L)
+            ),
+            savedSettings = settings,
+            currentTimeMillis = 7_000L
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(SessionStatus.GracePeriod, session.status)
+        assertEquals(3_000L, session.sessionElapsedMillis)
+        assertEquals(0L, session.currentActiveElapsedMillis)
+        assertNull(result.limitAlertRequest)
+    }
+
+    // Перевіряємо, що повернення до tracked app до завершення grace продовжує ту саму session.
+    @Test
+    fun sessionContinuesWhenReturningBeforeGraceExpires() {
+        val graceSession = requireNotNull(
+            engine.buildNextSession(
+                previousSession = null,
+                snapshot = snapshot(
+                    lastForegroundPackageName = LauncherPackage,
+                    transition(ChromePackage, 1_000L),
+                    transition(LauncherPackage, 4_000L)
+                ),
+                savedSettings = settings,
+                currentTimeMillis = 7_000L
+            ).session
+        )
+
+        val result = engine.buildNextSession(
+            previousSession = graceSession,
+            snapshot = snapshot(
+                lastForegroundPackageName = ChromePackage,
+                transition(ChromePackage, 8_000L)
+            ),
+            savedSettings = settings,
+            currentTimeMillis = 9_000L
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(SessionStatus.Active, session.status)
+        assertEquals(4_000L, session.sessionElapsedMillis)
+        assertEquals(1_000L, session.currentActiveElapsedMillis)
+    }
+
+    // Перевіряємо, що session завершується, якщо користувач не повернувся до tracked app до кінця grace.
+    @Test
+    fun sessionEndsAfterGraceExpires() {
+        val graceSession = requireNotNull(
+            engine.buildNextSession(
+                previousSession = null,
+                snapshot = snapshot(
+                    lastForegroundPackageName = LauncherPackage,
+                    transition(ChromePackage, 1_000L),
+                    transition(LauncherPackage, 4_000L)
+                ),
+                savedSettings = settings,
+                currentTimeMillis = 7_000L
+            ).session
+        )
+
+        val result = engine.buildNextSession(
+            previousSession = graceSession,
+            snapshot = snapshot(lastForegroundPackageName = LauncherPackage),
+            savedSettings = settings,
+            currentTimeMillis = 14_001L
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(SessionStatus.Ended, session.status)
+        assertEquals(3_000L, session.sessionElapsedMillis)
+        assertNull(result.limitAlertRequest)
+    }
+
+    // Перевіряємо, що alert створюється після limit і не дублюється для тієї самої session.
+    @Test
+    fun alertFiresOnceAfterLimit() {
+        val firstResult = engine.buildNextSession(
+            previousSession = null,
+            snapshot = snapshot(
+                lastForegroundPackageName = ChromePackage,
+                transition(ChromePackage, 1_000L)
+            ),
+            savedSettings = settings,
+            currentTimeMillis = 7_000L
+        )
+
+        val firstSession = requireNotNull(firstResult.session)
+        val firstAlert = requireNotNull(firstResult.limitAlertRequest)
+        assertEquals(firstSession.sessionKey, firstAlert.sessionKey)
+
+        val alertedSession = firstSession.copy(alertedSessionKey = firstSession.sessionKey)
+        val secondResult = engine.buildNextSession(
+            previousSession = alertedSession,
+            snapshot = snapshot(lastForegroundPackageName = ChromePackage),
+            savedSettings = settings,
+            currentTimeMillis = 8_000L
+        )
+
+        assertNull(secondResult.limitAlertRequest)
+        assertEquals(7_000L, requireNotNull(secondResult.session).sessionElapsedMillis)
+    }
+
+    // Перевіряємо, що після повернення в already-over-limit session alert чекає resume delay.
+    @Test
+    fun alertWaitsForResumeDelayAfterReturningOverLimit() {
+        val graceSession = requireNotNull(
+            engine.buildNextSession(
+                previousSession = null,
+                snapshot = snapshot(
+                    lastForegroundPackageName = LauncherPackage,
+                    transition(ChromePackage, 1_000L),
+                    transition(LauncherPackage, 7_000L)
+                ),
+                savedSettings = settings,
+                currentTimeMillis = 8_000L
+            ).session
+        )
+
+        val beforeDelayResult = engine.buildNextSession(
+            previousSession = graceSession,
+            snapshot = snapshot(
+                lastForegroundPackageName = ChromePackage,
+                transition(ChromePackage, 8_000L)
+            ),
+            savedSettings = settings,
+            currentTimeMillis = 9_000L
+        )
+
+        assertNull(beforeDelayResult.limitAlertRequest)
+
+        val afterDelayResult = engine.buildNextSession(
+            previousSession = beforeDelayResult.session,
+            snapshot = snapshot(lastForegroundPackageName = ChromePackage),
+            savedSettings = settings,
+            currentTimeMillis = 10_000L
+        )
+
+        assertNotNull(afterDelayResult.limitAlertRequest)
+    }
+
+    // Перевіряємо, що активна session зберігає свої effective settings навіть якщо saved settings змінились.
+    @Test
+    fun existingSessionKeepsEffectiveSettings() {
+        val activeSession = requireNotNull(
+            engine.buildNextSession(
+                previousSession = null,
+                snapshot = snapshot(
+                    lastForegroundPackageName = ChromePackage,
+                    transition(ChromePackage, 1_000L)
+                ),
+                savedSettings = settings,
+                currentTimeMillis = 2_000L
+            ).session
+        )
+
+        val changedSettings = settings.copy(sessionLimitMillis = 1_000L)
+        val result = engine.buildNextSession(
+            previousSession = activeSession,
+            snapshot = snapshot(lastForegroundPackageName = ChromePackage),
+            savedSettings = changedSettings,
+            currentTimeMillis = 4_000L
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(settings, session.effectiveSettings)
+        assertNull(result.limitAlertRequest)
+    }
+
+    // Перевіряємо, що без persisted session tracked foreground app стартує нову session з поточного часу.
+    @Test
+    fun noPreviousSessionWithTrackedForegroundStartsFreshAtCurrentTime() {
+        val result = engine.buildNextSession(
+            previousSession = null,
+            snapshot = snapshot(lastForegroundPackageName = ChromePackage),
+            savedSettings = settings,
+            currentTimeMillis = 20_000L
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(20_000L, session.sessionStartedAtMillis)
+        assertEquals(0L, session.sessionElapsedMillis)
+        assertNull(result.limitAlertRequest)
+    }
+
+    private fun snapshot(
+        lastForegroundPackageName: String?,
+        vararg transitions: ForegroundTransition
+    ): ForegroundUsageSnapshot {
+        return ForegroundUsageSnapshot(
+            lastForegroundPackageName = lastForegroundPackageName,
+            transitions = transitions.toList()
+        )
+    }
+
+    private fun transition(packageName: String, timestampMillis: Long): ForegroundTransition {
+        return ForegroundTransition(
+            packageName = packageName,
+            className = null,
+            eventType = 1,
+            timestampMillis = timestampMillis
+        )
+    }
+
+    private companion object {
+        const val ChromePackage = "com.android.chrome"
+        const val FocusGuardPackage = "com.vmdex.focusguard"
+        const val LauncherPackage = "com.android.launcher"
+    }
+}

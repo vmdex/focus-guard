@@ -34,6 +34,7 @@ MainActivity.kt
 FocusGuardApp.kt
 UsageWatcherService.kt
 UsageEventReader.kt
+SessionEngine.kt
 SessionModels.kt
 PersistedSessionState.kt
 SessionStateStore.kt
@@ -71,6 +72,17 @@ Monitoring is owned by `UsageWatcherService`, not by `MainActivity`.
 `WatcherStateStore` stores the UI/debug snapshot.
 
 `UsageEvents` are now used as foreground transition input, not as the whole source of truth for session memory.
+
+`SessionEngine` owns the pure session rules. It has no Android service, notification, store, or overlay dependency.
+
+`UsageWatcherService` now acts mostly as wiring:
+
+- reads settings/state/session stores;
+- reads foreground transitions;
+- calls `SessionEngine`;
+- persists the returned session;
+- sends Android notifications when the engine returns a limit-alert request;
+- updates the foreground notification and floating overlay.
 
 ## Monitoring on/off semantics
 
@@ -298,6 +310,23 @@ Other planned work:
 
 ## Testing notes
 
+The main session logic now has JVM unit tests in:
+
+```text
+app/src/test/java/com/vmdex/focusguard/SessionEngineTest.kt
+```
+
+The tests simulate foreground transitions and timestamps directly. Covered scenarios:
+
+- session elapsed grows only while a tracked app is active;
+- grace freezes elapsed;
+- returning before grace expires continues the session;
+- grace expiry ends the session;
+- limit alert fires once per session;
+- alert waits for `alertDelayAfterResumeMillis` after returning;
+- effective settings stay attached to an existing session;
+- no previous session with tracked foreground starts fresh at the current time.
+
 Useful manual test settings:
 
 ```text
@@ -327,11 +356,18 @@ This has been passing after the recent Android changes.
 
 `testDebugUnitTest` previously failed due to a local Windows/JDK/PATH test executor issue, not due to Kotlin compilation.
 
+After adding `SessionEngineTest`, `compileDebugUnitTestKotlin` succeeds, but `testDebugUnitTest` is still blocked by the same local Windows/JDK/PATH Gradle Test Executor issue:
+
+```text
+Could not find or load main class Files\Java\jdk-21\bin...
+```
+
 ## Git status note
 
 Recent Android commits include:
 
 ```text
+3e7efd0 Persist Android session memory
 7ce958d Document Android current state
 3af0ece Group Android dev info sections
 ebf4e95 Expand Android session debug info
@@ -340,14 +376,6 @@ c901319 Add Android dev session reset
 eb22452 Refine Android debug overlay status
 5464825 Add Android monitoring debug overlay
 3ae033d Refine Android grace alert timing
-```
-
-Current uncommitted work at the time this state was updated:
-
-```text
-Persist session memory in SessionStateStore / PersistedSessionState
-Use UsageEvents as foreground transition input
-Document battery/performance polling direction
 ```
 
 Earlier Android commits include:
