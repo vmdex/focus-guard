@@ -22,7 +22,8 @@ sealed interface ForegroundAppState {
         val lastForegroundPackageName: String,
         val interruptionStartedAtMillis: Long?,
         val sessionElapsedMillis: Long,
-        val currentActiveElapsedMillis: Long
+        val currentActiveElapsedMillis: Long,
+        val isAlertSentForSession: Boolean = false
     ) : ForegroundAppState {
         val sessionKey: String = "$packageName:$timestampMillis"
     }

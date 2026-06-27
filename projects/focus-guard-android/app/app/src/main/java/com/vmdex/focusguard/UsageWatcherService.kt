@@ -196,7 +196,8 @@ class UsageWatcherService : Service() {
             lastForegroundPackageName = snapshot.lastForegroundPackageName ?: session.lastForegroundPackageName,
             interruptionStartedAtMillis = session.interruptionStartedAtMillis,
             sessionElapsedMillis = session.sessionElapsedMillis,
-            currentActiveElapsedMillis = session.currentActiveElapsedMillis
+            currentActiveElapsedMillis = session.currentActiveElapsedMillis,
+            isAlertSentForSession = session.alertedSessionKey == session.sessionKey
         )
     }
 
@@ -281,11 +282,17 @@ class UsageWatcherService : Service() {
             ""
         }
 
+        val notificationText = if (foregroundState.isAlertSentForSession) {
+            "Notification sent"
+        } else {
+            "Notification left: ${formatElapsed(notificationLeftMillis)}$notificationReason"
+        }
+
         return listOf(
             "Tracking: ${shortPackageName(foregroundState.packageName)}",
             "Session: ${formatElapsed(foregroundState.sessionElapsedMillis)}",
             "Limit left: ${formatElapsed(limitLeftMillis)}",
-            "Notification left: ${formatElapsed(notificationLeftMillis)}$notificationReason"
+            notificationText
         ).joinToString(separator = "\n")
     }
 

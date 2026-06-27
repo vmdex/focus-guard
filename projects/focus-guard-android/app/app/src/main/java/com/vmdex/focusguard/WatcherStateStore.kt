@@ -61,6 +61,7 @@ class WatcherStateStore(context: Context) {
                     .putLong(ForegroundInterruptionStartedAtMillisKey, foregroundState.interruptionStartedAtMillis ?: 0L)
                     .putLong(ForegroundSessionElapsedMillisKey, foregroundState.sessionElapsedMillis)
                     .putLong(ForegroundCurrentActiveElapsedMillisKey, foregroundState.currentActiveElapsedMillis)
+                    .putBoolean(ForegroundIsAlertSentForSessionKey, foregroundState.isAlertSentForSession)
             }
         }
 
@@ -96,7 +97,8 @@ class WatcherStateStore(context: Context) {
             lastForegroundPackageName = preferences.getString(ForegroundLastPackageNameKey, null) ?: "-",
             interruptionStartedAtMillis = interruptionStartedAt,
             sessionElapsedMillis = preferences.getLong(ForegroundSessionElapsedMillisKey, 0L),
-            currentActiveElapsedMillis = preferences.getLong(ForegroundCurrentActiveElapsedMillisKey, 0L)
+            currentActiveElapsedMillis = preferences.getLong(ForegroundCurrentActiveElapsedMillisKey, 0L),
+            isAlertSentForSession = preferences.getBoolean(ForegroundIsAlertSentForSessionKey, false)
         )
     }
 
@@ -149,6 +151,7 @@ private const val ForegroundLastPackageNameKey = "foreground_last_package_name"
 private const val ForegroundInterruptionStartedAtMillisKey = "foreground_interruption_started_at_millis"
 private const val ForegroundSessionElapsedMillisKey = "foreground_session_elapsed_millis"
 private const val ForegroundCurrentActiveElapsedMillisKey = "foreground_current_active_elapsed_millis"
+private const val ForegroundIsAlertSentForSessionKey = "foreground_is_alert_sent_for_session"
 
 private const val AlertWasSentKey = "alert_was_sent"
 private const val AlertLastTimeMillisKey = "alert_last_time_millis"

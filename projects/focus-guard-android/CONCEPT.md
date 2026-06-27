@@ -69,6 +69,29 @@ Future structure idea:
 - an `InterventionEngine` decides what should happen next;
 - platform-specific notifiers only deliver the selected intervention.
 
+Future debug/display state idea:
+
+```text
+NotificationState(
+    status = NotNeeded / WaitingLimit / WaitingResumeDelay / Sent / RepeatScheduled / OverlayActive,
+    leftMillis = ...
+)
+```
+
+The floating overlay could then display a ready-made notification/intervention status instead of recalculating UI text from session and alert fields.
+
+Benefits:
+
+- this is the cleanest long-term model;
+- it fits future repeated notifications and different intervention scenarios;
+- it can explicitly model `NotNeeded`, `WaitingLimit`, `WaitingResumeDelay`, `Sent`, `RepeatScheduled`, and `OverlayActive`.
+
+Tradeoffs:
+
+- this is too much refactor for the current MVP;
+- it requires separating alert/intervention architecture more clearly;
+- for now, a small debug field such as `isAlertSentForSession` is enough to make the overlay honest without rebuilding the domain model.
+
 This will make repeated notifications and escalation easier later, for example:
 
 ```text
@@ -146,6 +169,13 @@ Performance idea to remember:
 - while a tracked app is active and close to its limit, polling can be more frequent;
 - the floating overlay is a debug aid and can update every second during development, but should become optional or less frequent later;
 - background logic should prefer timestamps and persisted session state over constant recomputation.
+
+Modernize foreground usage events:
+
+- `UsageEvents.Event.MOVE_TO_FOREGROUND` is deprecated;
+- it still works, but Android marks it as old API that should not be treated as the long-term path;
+- consider switching foreground detection to newer event types such as `UsageEvents.Event.ACTIVITY_RESUMED` and `UsageEvents.Event.ACTIVITY_PAUSED`;
+- this should be tested carefully on the Pixel 7 for Chrome, Focus Guard itself, launcher/untracked apps, and session transitions.
 
 ## First technical path
 
