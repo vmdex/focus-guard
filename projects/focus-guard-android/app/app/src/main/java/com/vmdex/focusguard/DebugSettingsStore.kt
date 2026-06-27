@@ -11,6 +11,10 @@ class DebugSettingsStore(context: Context) {
             isFloatingDebugWindowEnabled = preferences.getBoolean(
                 FloatingDebugWindowEnabledKey,
                 true
+            ),
+            isSessionTimerEnabled = preferences.getBoolean(
+                SessionTimerEnabledKey,
+                false
             )
         )
     }
@@ -18,9 +22,11 @@ class DebugSettingsStore(context: Context) {
     fun save(settings: DebugSettings) {
         preferences.edit {
             putBoolean(FloatingDebugWindowEnabledKey, settings.isFloatingDebugWindowEnabled)
+            putBoolean(SessionTimerEnabledKey, settings.isSessionTimerEnabled)
         }
     }
 }
 
 private const val DebugSettingsStoreName = "focus_guard_debug_settings"
 private const val FloatingDebugWindowEnabledKey = "floating_debug_window_enabled"
+private const val SessionTimerEnabledKey = "session_timer_enabled"

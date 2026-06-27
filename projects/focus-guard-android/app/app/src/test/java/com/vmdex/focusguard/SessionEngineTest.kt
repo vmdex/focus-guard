@@ -430,6 +430,13 @@ class SessionEngineTest {
         assertFalse(overlayText.contains("Notification left"))
     }
 
+    // Перевіряємо формат timer widget: до години mm:ss, після години hh:mm:ss.
+    @Test
+    fun sessionTimerUsesHoursOnlyAfterOneHour() {
+        assertEquals("59:59", formatSessionTimer(3_599_000L))
+        assertEquals("01:00:00", formatSessionTimer(3_600_000L))
+    }
+
     // Перевіряємо, що session стабільно переживає interruption/grace і не рахує elapsed поза tracked app.
     @Test
     fun sessionStaysStableAcrossInterruptionAndGraceReturn() {

@@ -33,6 +33,8 @@ class UsageWatcherService : Service() {
     private var effectiveSettings = FocusGuardSettings()
     private var floatingDebugView: TextView? = null
     private var floatingDebugLayoutParams: WindowManager.LayoutParams? = null
+    private var sessionTimerView: TextView? = null
+    private var sessionTimerLayoutParams: WindowManager.LayoutParams? = null
 
     private val tickRunnable = object : Runnable {
         override fun run() {
@@ -40,6 +42,7 @@ class UsageWatcherService : Service() {
             stateStore.save(state)
             updateMonitoringNotification(state)
             updateFloatingDebugWindow(state)
+            updateSessionTimerWindow(state)
             handler.postDelayed(this, WatcherTickMillis)
         }
     }
@@ -82,6 +85,7 @@ class UsageWatcherService : Service() {
         stateStore.save(state)
         startForeground(WatcherNotificationId, buildMonitoringNotification(state))
         updateFloatingDebugWindow(state)
+        updateSessionTimerWindow(state)
         handler.removeCallbacks(tickRunnable)
         handler.postDelayed(tickRunnable, WatcherTickMillis)
     }
@@ -89,6 +93,7 @@ class UsageWatcherService : Service() {
     private fun stopMonitoring(markNotRunning: Boolean) {
         handler.removeCallbacks(tickRunnable)
         removeFloatingDebugWindow()
+        removeSessionTimerWindow()
         if (markNotRunning) {
             sessionStore.clear()
             stateStore.save(WatcherState(isRunning = false, lastTickTimeMillis = null))
@@ -236,6 +241,34 @@ class UsageWatcherService : Service() {
         }
     }
 
+    private fun updateSessionTimerWindow(state: WatcherState) {
+        val detected = state.foregroundAppState as? ForegroundAppState.Detected
+        if (!debugSettingsStore.load().isSessionTimerEnabled ||
+            detected == null ||
+            detected.sessionStatus != SessionStatus.Active ||
+            detected.lastForegroundPackageName != detected.packageName
+        ) {
+            removeSessionTimerWindow()
+            return
+        }
+
+        if (!hasOverlayPermission(this)) {
+            removeSessionTimerWindow()
+            return
+        }
+
+        val view = sessionTimerView ?: createSessionTimerView().also { sessionTimerView = it }
+        val timerText = formatSessionTimer(detected.sessionElapsedMillis)
+        view.text = timerText
+        view.textSize = if (timerText.length > 5) 12f else 14f
+
+        if (view.parent == null) {
+            val params = sessionTimerLayoutParams ?: createSessionTimerLayoutParams()
+                .also { sessionTimerLayoutParams = it }
+            windowManager.addView(view, params)
+        }
+    }
+
     private fun createFloatingDebugView(): TextView {
         return FloatingDebugTextView(this).apply {
             text = "FG"
@@ -249,6 +282,21 @@ class UsageWatcherService : Service() {
                 setStroke(2, Color.argb(230, 96, 165, 250))
             }
             setOnTouchListener(FloatingDebugDragListener())
+        }
+    }
+
+    private fun createSessionTimerView(): TextView {
+        return SessionTimerTextView(this).apply {
+            text = "00:00"
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(230, 20, 24, 28))
+                setStroke(timerStrokeWidthPx(), Color.argb(245, 96, 165, 250))
+            }
+            setOnTouchListener(SessionTimerDragListener())
         }
     }
 
@@ -266,6 +314,21 @@ class UsageWatcherService : Service() {
         }
     }
 
+    private fun createSessionTimerLayoutParams(): WindowManager.LayoutParams {
+        val size = sessionTimerSizePx()
+        return WindowManager.LayoutParams(
+            size,
+            size,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 32
+            y = 320
+        }
+    }
+
     private fun floatingDebugText(state: WatcherState): String {
         return floatingDebugTextForState(state)
     }
@@ -277,6 +340,15 @@ class UsageWatcherService : Service() {
         }
         floatingDebugView = null
         floatingDebugLayoutParams = null
+    }
+
+    private fun removeSessionTimerWindow() {
+        val view = sessionTimerView ?: return
+        if (view.parent != null) {
+            windowManager.removeView(view)
+        }
+        sessionTimerView = null
+        sessionTimerLayoutParams = null
     }
 
     private fun buildMonitoringNotification(state: WatcherState): Notification {
@@ -357,6 +429,49 @@ class UsageWatcherService : Service() {
         }
     }
 
+    private inner class SessionTimerDragListener : View.OnTouchListener {
+        private var initialX = 0
+        private var initialY = 0
+        private var initialTouchX = 0f
+        private var initialTouchY = 0f
+
+        override fun onTouch(view: View, event: MotionEvent): Boolean {
+            val params = sessionTimerLayoutParams ?: return false
+
+            return when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialX = params.x
+                    initialY = params.y
+                    initialTouchX = event.rawX
+                    initialTouchY = event.rawY
+                    true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    params.x = initialX + (event.rawX - initialTouchX).toInt()
+                    params.y = initialY + (event.rawY - initialTouchY).toInt()
+                    windowManager.updateViewLayout(view, params)
+                    true
+                }
+
+                MotionEvent.ACTION_UP -> {
+                    view.performClick()
+                    true
+                }
+
+                else -> false
+            }
+        }
+    }
+
+    private fun sessionTimerSizePx(): Int {
+        return (72 * resources.displayMetrics.density).toInt()
+    }
+
+    private fun timerStrokeWidthPx(): Int {
+        return (3 * resources.displayMetrics.density).toInt().coerceAtLeast(1)
+    }
+
     companion object {
         private const val ActionStart = "com.vmdex.focusguard.action.START_USAGE_WATCHER"
         private const val ActionStop = "com.vmdex.focusguard.action.STOP_USAGE_WATCHER"
@@ -379,6 +494,13 @@ class UsageWatcherService : Service() {
 }
 
 private class FloatingDebugTextView(context: Context) : TextView(context) {
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
+    }
+}
+
+private class SessionTimerTextView(context: Context) : TextView(context) {
     override fun performClick(): Boolean {
         super.performClick()
         return true
