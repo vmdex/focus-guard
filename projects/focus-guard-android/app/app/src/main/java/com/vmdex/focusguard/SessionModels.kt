@@ -18,7 +18,9 @@ sealed interface ForegroundAppState {
         val isTracked: Boolean,
         val sessionStatus: SessionStatus,
         val lastForegroundPackageName: String,
-        val interruptionStartedAtMillis: Long?
+        val interruptionStartedAtMillis: Long?,
+        val sessionElapsedMillis: Long,
+        val currentActiveElapsedMillis: Long
     ) : ForegroundAppState {
         val sessionKey: String = "$packageName:$timestampMillis"
     }
@@ -41,12 +43,5 @@ fun calculateSessionElapsedMillis(
     foregroundAppState: ForegroundAppState.Detected,
     currentTimeMillis: Long
 ): Long {
-    // Once grace period expires, the session should stop growing.
-    return when {
-        foregroundAppState.sessionStatus == SessionStatus.Ended &&
-            foregroundAppState.interruptionStartedAtMillis != null ->
-            foregroundAppState.interruptionStartedAtMillis - foregroundAppState.timestampMillis
-
-        else -> currentTimeMillis - foregroundAppState.timestampMillis
-    }
+    return foregroundAppState.sessionElapsedMillis
 }

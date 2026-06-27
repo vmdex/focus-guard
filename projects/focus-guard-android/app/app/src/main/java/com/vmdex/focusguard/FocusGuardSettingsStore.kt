@@ -8,7 +8,11 @@ class FocusGuardSettingsStore(context: Context) {
     fun load(): FocusGuardSettings {
         return FocusGuardSettings(
             gracePeriodMillis = readSeconds(GracePeriodSecondsKey, DefaultGracePeriodMillis),
-            sessionLimitMillis = readSeconds(SessionLimitSecondsKey, DefaultSessionLimitMillis)
+            sessionLimitMillis = readSeconds(SessionLimitSecondsKey, DefaultSessionLimitMillis),
+            alertDelayAfterResumeMillis = readSeconds(
+                AlertDelayAfterResumeSecondsKey,
+                DefaultAlertDelayAfterResumeMillis
+            )
         )
     }
 
@@ -16,6 +20,7 @@ class FocusGuardSettingsStore(context: Context) {
         preferences.edit()
             .putInt(GracePeriodSecondsKey, settings.gracePeriodSeconds)
             .putInt(SessionLimitSecondsKey, settings.sessionLimitSeconds)
+            .putInt(AlertDelayAfterResumeSecondsKey, settings.alertDelayAfterResumeSeconds)
             .apply()
     }
 
@@ -30,3 +35,4 @@ class FocusGuardSettingsStore(context: Context) {
 private const val SettingsStoreName = "focus_guard_settings"
 private const val GracePeriodSecondsKey = "grace_period_seconds"
 private const val SessionLimitSecondsKey = "session_limit_seconds"
+private const val AlertDelayAfterResumeSecondsKey = "alert_delay_after_resume_seconds"

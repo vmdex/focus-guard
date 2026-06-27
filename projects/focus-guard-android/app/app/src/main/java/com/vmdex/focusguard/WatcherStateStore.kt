@@ -23,6 +23,7 @@ class WatcherStateStore(context: Context) {
             .putLong(LastTickTimeMillisKey, state.lastTickTimeMillis ?: 0L)
             .putInt(EffectiveGracePeriodSecondsKey, state.effectiveSettings.gracePeriodSeconds)
             .putInt(EffectiveSessionLimitSecondsKey, state.effectiveSettings.sessionLimitSeconds)
+            .putInt(EffectiveAlertDelayAfterResumeSecondsKey, state.effectiveSettings.alertDelayAfterResumeSeconds)
             .putBoolean(AlertWasSentKey, state.alertState.wasSent)
             .putLong(AlertLastTimeMillisKey, state.alertState.lastAlertTimeMillis ?: 0L)
             .putString(AlertLastPackageNameKey, state.alertState.lastAlertPackageName)
@@ -47,6 +48,8 @@ class WatcherStateStore(context: Context) {
                     .putString(ForegroundSessionStatusKey, foregroundState.sessionStatus.name)
                     .putString(ForegroundLastPackageNameKey, foregroundState.lastForegroundPackageName)
                     .putLong(ForegroundInterruptionStartedAtMillisKey, foregroundState.interruptionStartedAtMillis ?: 0L)
+                    .putLong(ForegroundSessionElapsedMillisKey, foregroundState.sessionElapsedMillis)
+                    .putLong(ForegroundCurrentActiveElapsedMillisKey, foregroundState.currentActiveElapsedMillis)
             }
         }
 
@@ -77,7 +80,9 @@ class WatcherStateStore(context: Context) {
             isTracked = preferences.getBoolean(ForegroundIsTrackedKey, false),
             sessionStatus = sessionStatus,
             lastForegroundPackageName = preferences.getString(ForegroundLastPackageNameKey, null) ?: "-",
-            interruptionStartedAtMillis = interruptionStartedAt
+            interruptionStartedAtMillis = interruptionStartedAt,
+            sessionElapsedMillis = preferences.getLong(ForegroundSessionElapsedMillisKey, 0L),
+            currentActiveElapsedMillis = preferences.getLong(ForegroundCurrentActiveElapsedMillisKey, 0L)
         )
     }
 
@@ -98,6 +103,12 @@ class WatcherStateStore(context: Context) {
                 .coerceAtLeast(1) * 1000L,
             sessionLimitMillis = preferences
                 .getInt(EffectiveSessionLimitSecondsKey, (DefaultSessionLimitMillis / 1000).toInt())
+                .coerceAtLeast(1) * 1000L,
+            alertDelayAfterResumeMillis = preferences
+                .getInt(
+                    EffectiveAlertDelayAfterResumeSecondsKey,
+                    (DefaultAlertDelayAfterResumeMillis / 1000).toInt()
+                )
                 .coerceAtLeast(1) * 1000L
         )
     }
@@ -119,6 +130,8 @@ private const val ForegroundIsTrackedKey = "foreground_is_tracked"
 private const val ForegroundSessionStatusKey = "foreground_session_status"
 private const val ForegroundLastPackageNameKey = "foreground_last_package_name"
 private const val ForegroundInterruptionStartedAtMillisKey = "foreground_interruption_started_at_millis"
+private const val ForegroundSessionElapsedMillisKey = "foreground_session_elapsed_millis"
+private const val ForegroundCurrentActiveElapsedMillisKey = "foreground_current_active_elapsed_millis"
 
 private const val AlertWasSentKey = "alert_was_sent"
 private const val AlertLastTimeMillisKey = "alert_last_time_millis"
@@ -126,3 +139,4 @@ private const val AlertLastPackageNameKey = "alert_last_package_name"
 
 private const val EffectiveGracePeriodSecondsKey = "effective_grace_period_seconds"
 private const val EffectiveSessionLimitSecondsKey = "effective_session_limit_seconds"
+private const val EffectiveAlertDelayAfterResumeSecondsKey = "effective_alert_delay_after_resume_seconds"

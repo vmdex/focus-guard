@@ -13,11 +13,10 @@ fun readLatestForegroundApp(
     val start = now - UsageLookupWindowMillis
     val events = usageStatsManager.queryEvents(start, now)
     val event = UsageEvents.Event()
-    var latestTrackedApp: TrackedForegroundEvent? = null
     var lastForegroundPackageName: String? = null
-    var interruptionStartedAtMillis: Long? = null
+    var session: TrackedSessionAccumulator? = null
 
-    // Walk the window chronologically and keep the latest tracked app as the session candidate.
+    // Walk chronologically and accumulate only time spent with the tracked app in foreground.
     while (events.hasNextEvent()) {
         events.getNextEvent(event)
 
@@ -27,50 +26,87 @@ fun readLatestForegroundApp(
 
         val foregroundPackageName = event.packageName ?: continue
         lastForegroundPackageName = foregroundPackageName
-
-        if (foregroundPackageName != context.packageName &&
+        val isTrackedApp = foregroundPackageName != context.packageName &&
             foregroundPackageName in TrackedAppPackages
-        ) {
-            latestTrackedApp = TrackedForegroundEvent(
-                packageName = foregroundPackageName,
-                className = event.className,
-                eventType = event.eventType,
-                timestampMillis = event.timeStamp
-            )
-            interruptionStartedAtMillis = null
+
+        if (isTrackedApp) {
+            val currentSession = session
+            val shouldStartNewSession = currentSession == null ||
+                currentSession.packageName != foregroundPackageName ||
+                currentSession.isGraceExpired(event.timeStamp, gracePeriodMillis)
+
+            session = if (shouldStartNewSession) {
+                TrackedSessionAccumulator(
+                    packageName = foregroundPackageName,
+                    className = event.className,
+                    eventType = event.eventType,
+                    sessionStartedAtMillis = event.timeStamp,
+                    currentActiveStartedAtMillis = event.timeStamp
+                )
+            } else {
+                currentSession.copy(
+                    className = event.className,
+                    eventType = event.eventType,
+                    currentActiveStartedAtMillis = currentSession.currentActiveStartedAtMillis ?: event.timeStamp,
+                    interruptionStartedAtMillis = null
+                )
+            }
             continue
         }
 
-        // The first non-tracked foreground transition after a tracked app starts grace period.
-        if (latestTrackedApp != null && interruptionStartedAtMillis == null) {
-            interruptionStartedAtMillis = event.timeStamp
+        val currentSession = session
+        if (currentSession != null && currentSession.currentActiveStartedAtMillis != null) {
+            session = currentSession.copy(
+                accumulatedSessionElapsedMillis = currentSession.accumulatedSessionElapsedMillis +
+                    (event.timeStamp - currentSession.currentActiveStartedAtMillis).coerceAtLeast(0L),
+                currentActiveStartedAtMillis = null,
+                interruptionStartedAtMillis = event.timeStamp
+            )
         }
     }
 
-    val trackedApp = latestTrackedApp ?: return ForegroundAppState.Unknown
+    val trackedSession = session ?: return ForegroundAppState.Unknown
+    val activeStartedAtMillis = trackedSession.currentActiveStartedAtMillis
     // Grace period keeps short launcher/recents/app-switch interruptions inside one session.
     val sessionStatus = when {
-        lastForegroundPackageName == trackedApp.packageName -> SessionStatus.Active
-        interruptionStartedAtMillis == null -> SessionStatus.Active
-        now - interruptionStartedAtMillis <= gracePeriodMillis -> SessionStatus.GracePeriod
+        lastForegroundPackageName == trackedSession.packageName && activeStartedAtMillis != null -> SessionStatus.Active
+        trackedSession.interruptionStartedAtMillis == null -> SessionStatus.Active
+        now - trackedSession.interruptionStartedAtMillis <= gracePeriodMillis -> SessionStatus.GracePeriod
         else -> SessionStatus.Ended
     }
+    val currentActiveElapsedMillis = if (sessionStatus == SessionStatus.Active && activeStartedAtMillis != null) {
+        (now - activeStartedAtMillis).coerceAtLeast(0L)
+    } else {
+        0L
+    }
+    val sessionElapsedMillis = trackedSession.accumulatedSessionElapsedMillis + currentActiveElapsedMillis
 
     return ForegroundAppState.Detected(
-        packageName = trackedApp.packageName,
-        className = trackedApp.className,
-        eventType = trackedApp.eventType,
-        timestampMillis = trackedApp.timestampMillis,
+        packageName = trackedSession.packageName,
+        className = trackedSession.className,
+        eventType = trackedSession.eventType,
+        timestampMillis = trackedSession.sessionStartedAtMillis,
         isTracked = true,
         sessionStatus = sessionStatus,
         lastForegroundPackageName = lastForegroundPackageName ?: "-",
-        interruptionStartedAtMillis = interruptionStartedAtMillis
+        interruptionStartedAtMillis = trackedSession.interruptionStartedAtMillis,
+        sessionElapsedMillis = sessionElapsedMillis,
+        currentActiveElapsedMillis = currentActiveElapsedMillis
     )
 }
 
-private data class TrackedForegroundEvent(
+private data class TrackedSessionAccumulator(
     val packageName: String,
     val className: String?,
     val eventType: Int,
-    val timestampMillis: Long
-)
+    val sessionStartedAtMillis: Long,
+    val accumulatedSessionElapsedMillis: Long = 0L,
+    val currentActiveStartedAtMillis: Long? = null,
+    val interruptionStartedAtMillis: Long? = null
+) {
+    fun isGraceExpired(currentTimeMillis: Long, gracePeriodMillis: Long): Boolean {
+        val interruptionStartedAt = interruptionStartedAtMillis ?: return false
+
+        return currentTimeMillis - interruptionStartedAt > gracePeriodMillis
+    }
+}

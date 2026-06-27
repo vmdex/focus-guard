@@ -287,6 +287,14 @@ private fun DevSettingsCard(
                 }
             )
 
+            SecondsField(
+                label = "Alert delay after resume seconds",
+                value = settings.alertDelayAfterResumeSeconds,
+                onValueChanged = { seconds ->
+                    onSettingsChanged(settings.copy(alertDelayAfterResumeMillis = seconds * 1000L))
+                }
+            )
+
             Text(
                 text = "Saved locally. Active sessions keep their original settings; changes apply to the next session.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -348,6 +356,10 @@ private fun DevInfoCard(
             DevInfoRow(label = "Pending settings", value = hasPendingSettings.toString())
             DevInfoRow(label = "Grace period", value = formatElapsed(effectiveSettings.gracePeriodMillis))
             DevInfoRow(label = "Session limit", value = formatElapsed(effectiveSettings.sessionLimitMillis))
+            DevInfoRow(
+                label = "Alert delay after resume",
+                value = formatElapsed(effectiveSettings.alertDelayAfterResumeMillis)
+            )
             Text(
                 text = TrackedAppPackages.joinToString(separator = "\n"),
                 style = MaterialTheme.typography.bodySmall,
@@ -430,6 +442,10 @@ private fun CurrentSessionRows(
             DevInfoRow(label = "Session app", value = foregroundAppState.packageName)
             DevInfoRow(label = "Session started", value = formatTimestamp(foregroundAppState.timestampMillis))
             DevInfoRow(label = "Session elapsed", value = formatElapsed(elapsedMillis))
+            DevInfoRow(
+                label = "Current active elapsed",
+                value = formatElapsed(foregroundAppState.currentActiveElapsedMillis)
+            )
             DevInfoRow(label = "Limit status", value = if (isLimitExceeded) "Exceeded" else "Within limit")
 
             if (foregroundAppState.sessionStatus == SessionStatus.GracePeriod &&
@@ -445,6 +461,7 @@ private fun CurrentSessionRows(
         else -> {
             DevInfoRow(label = "Session app", value = "-")
             DevInfoRow(label = "Session elapsed", value = "00:00")
+            DevInfoRow(label = "Current active elapsed", value = "00:00")
             DevInfoRow(label = "Limit status", value = "-")
         }
     }

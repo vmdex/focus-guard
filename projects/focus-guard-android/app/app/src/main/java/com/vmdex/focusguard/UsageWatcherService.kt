@@ -117,12 +117,15 @@ class UsageWatcherService : Service() {
     ): AlertState {
         val previousAlertState = stateStore.load().alertState
         val detected = foregroundAppState as? ForegroundAppState.Detected ?: return previousAlertState
-        if (detected.sessionStatus == SessionStatus.Ended) {
+        if (detected.sessionStatus != SessionStatus.Active) {
             return previousAlertState
         }
 
         val elapsedMillis = calculateSessionElapsedMillis(detected, currentTimeMillis)
-        if (elapsedMillis < effectiveSettings.sessionLimitMillis || alertedSessionKey == detected.sessionKey) {
+        if (elapsedMillis < effectiveSettings.sessionLimitMillis ||
+            detected.currentActiveElapsedMillis < effectiveSettings.alertDelayAfterResumeMillis ||
+            alertedSessionKey == detected.sessionKey
+        ) {
             return previousAlertState
         }
 
