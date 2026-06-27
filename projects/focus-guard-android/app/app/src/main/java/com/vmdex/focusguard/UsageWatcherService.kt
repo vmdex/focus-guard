@@ -210,11 +210,45 @@ class UsageWatcherService : Service() {
     }
 
     private fun floatingDebugText(state: WatcherState): String {
-        val detected = state.foregroundAppState as? ForegroundAppState.Detected
+        return when (val foregroundState = state.foregroundAppState) {
+            ForegroundAppState.PermissionMissing -> "Permission missing"
+            ForegroundAppState.Unknown -> "FG monitoring"
+            is ForegroundAppState.Untracked -> "Not tracking: ${shortPackageName(foregroundState.packageName)}"
+            is ForegroundAppState.Detected -> floatingTrackedDebugText(foregroundState, state.effectiveSettings)
+        }
+    }
 
-        return detected?.let {
-            "FG ${it.sessionStatus} ${formatElapsed(it.sessionElapsedMillis)}"
-        } ?: "FG monitoring"
+    private fun floatingTrackedDebugText(
+        foregroundState: ForegroundAppState.Detected,
+        settings: FocusGuardSettings
+    ): String {
+        val currentForegroundPackageName = foregroundState.lastForegroundPackageName
+        if (foregroundState.sessionStatus != SessionStatus.Active ||
+            currentForegroundPackageName != foregroundState.packageName
+        ) {
+            return "Not tracking: ${shortPackageName(currentForegroundPackageName)}"
+        }
+
+        val limitLeftMillis = (settings.sessionLimitMillis - foregroundState.sessionElapsedMillis).coerceAtLeast(0L)
+        val resumeDelayLeftMillis =
+            (settings.alertDelayAfterResumeMillis - foregroundState.currentActiveElapsedMillis).coerceAtLeast(0L)
+        val notificationLeftMillis = maxOf(limitLeftMillis, resumeDelayLeftMillis)
+        val notificationReason = if (resumeDelayLeftMillis > limitLeftMillis) {
+            " (resume delay)"
+        } else {
+            ""
+        }
+
+        return listOf(
+            "Tracking: ${shortPackageName(foregroundState.packageName)}",
+            "Session: ${formatElapsed(foregroundState.sessionElapsedMillis)}",
+            "Limit left: ${formatElapsed(limitLeftMillis)}",
+            "Notification left: ${formatElapsed(notificationLeftMillis)}$notificationReason"
+        ).joinToString(separator = "\n")
+    }
+
+    private fun shortPackageName(packageName: String): String {
+        return packageName.substringAfterLast('.').ifBlank { packageName }
     }
 
     private fun removeFloatingDebugWindow() {

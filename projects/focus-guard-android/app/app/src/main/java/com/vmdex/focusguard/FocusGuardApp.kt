@@ -474,6 +474,11 @@ private fun ForegroundAppRows(foregroundAppState: ForegroundAppState) {
             DevInfoRow(label = "Detected app", value = "unknown")
         }
 
+        is ForegroundAppState.Untracked -> {
+            DevInfoRow(label = "Detected app", value = foregroundAppState.packageName)
+            DevInfoRow(label = "Tracked", value = "false")
+        }
+
         is ForegroundAppState.Detected -> {
             DevInfoRow(label = "Detected app", value = foregroundAppState.packageName)
             DevInfoRow(label = "Tracked", value = foregroundAppState.isTracked.toString())

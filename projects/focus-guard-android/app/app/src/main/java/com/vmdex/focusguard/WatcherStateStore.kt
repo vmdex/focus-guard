@@ -37,6 +37,12 @@ class WatcherStateStore(context: Context) {
                 editor.putString(ForegroundStateKindKey, ForegroundStateKindUnknown)
             }
 
+            is ForegroundAppState.Untracked -> {
+                editor
+                    .putString(ForegroundStateKindKey, ForegroundStateKindUntracked)
+                    .putString(ForegroundPackageNameKey, foregroundState.packageName)
+            }
+
             is ForegroundAppState.Detected -> {
                 editor
                     .putString(ForegroundStateKindKey, ForegroundStateKindDetected)
@@ -59,6 +65,9 @@ class WatcherStateStore(context: Context) {
     private fun readForegroundAppState(): ForegroundAppState {
         return when (preferences.getString(ForegroundStateKindKey, ForegroundStateKindUnknown)) {
             ForegroundStateKindPermissionMissing -> ForegroundAppState.PermissionMissing
+            ForegroundStateKindUntracked -> ForegroundAppState.Untracked(
+                packageName = preferences.getString(ForegroundPackageNameKey, null).orEmpty()
+            )
             ForegroundStateKindDetected -> readDetectedForegroundAppState()
             else -> ForegroundAppState.Unknown
         }
@@ -121,6 +130,7 @@ private const val LastTickTimeMillisKey = "last_tick_time_millis"
 private const val ForegroundStateKindKey = "foreground_state_kind"
 private const val ForegroundStateKindUnknown = "unknown"
 private const val ForegroundStateKindPermissionMissing = "permission_missing"
+private const val ForegroundStateKindUntracked = "untracked"
 private const val ForegroundStateKindDetected = "detected"
 private const val ForegroundPackageNameKey = "foreground_package_name"
 private const val ForegroundClassNameKey = "foreground_class_name"

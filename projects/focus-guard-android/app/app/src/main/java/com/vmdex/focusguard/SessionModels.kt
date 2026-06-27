@@ -9,6 +9,7 @@ data class AlertState(
 sealed interface ForegroundAppState {
     data object Unknown : ForegroundAppState
     data object PermissionMissing : ForegroundAppState
+    data class Untracked(val packageName: String) : ForegroundAppState
 
     data class Detected(
         val packageName: String,

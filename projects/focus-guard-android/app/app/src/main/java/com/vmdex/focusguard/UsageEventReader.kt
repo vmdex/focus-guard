@@ -65,7 +65,9 @@ fun readLatestForegroundApp(
         }
     }
 
-    val trackedSession = session ?: return ForegroundAppState.Unknown
+    val trackedSession = session ?: return lastForegroundPackageName
+        ?.let(ForegroundAppState::Untracked)
+        ?: ForegroundAppState.Unknown
     val activeStartedAtMillis = trackedSession.currentActiveStartedAtMillis
     // Grace period keeps short launcher/recents/app-switch interruptions inside one session.
     val sessionStatus = when {
