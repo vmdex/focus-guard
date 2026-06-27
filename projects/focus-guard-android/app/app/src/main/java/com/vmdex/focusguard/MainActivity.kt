@@ -26,6 +26,7 @@ class MainActivity : ComponentActivity() {
     private var watcherState by mutableStateOf(WatcherState())
     private lateinit var settingsStore: FocusGuardSettingsStore
     private lateinit var watcherStateStore: WatcherStateStore
+    private lateinit var sessionStateStore: SessionStateStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,6 +34,7 @@ class MainActivity : ComponentActivity() {
 
         settingsStore = FocusGuardSettingsStore(this)
         watcherStateStore = WatcherStateStore(this)
+        sessionStateStore = SessionStateStore(this)
         settings = settingsStore.load()
         watcherState = watcherStateStore.load()
         effectiveSettings = settings
@@ -119,6 +121,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun resetSession() {
+        sessionStateStore.clear()
         val resetState = watcherStateStore.load().copy(
             foregroundAppState = ForegroundAppState.Unknown,
             alertState = AlertState(),

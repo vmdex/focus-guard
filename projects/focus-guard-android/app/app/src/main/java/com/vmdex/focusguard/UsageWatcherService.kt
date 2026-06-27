@@ -24,11 +24,11 @@ import androidx.core.app.NotificationCompat
 class UsageWatcherService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var stateStore: WatcherStateStore
+    private lateinit var sessionStore: SessionStateStore
     private lateinit var settingsStore: FocusGuardSettingsStore
     private lateinit var notifier: FocusGuardNotifier
     private lateinit var windowManager: WindowManager
     private var effectiveSettings = FocusGuardSettings()
-    private var alertedSessionKey: String? = null
     private var floatingDebugView: TextView? = null
     private var floatingDebugLayoutParams: WindowManager.LayoutParams? = null
 
@@ -45,12 +45,12 @@ class UsageWatcherService : Service() {
     override fun onCreate() {
         super.onCreate()
         stateStore = WatcherStateStore(this)
+        sessionStore = SessionStateStore(this)
         settingsStore = FocusGuardSettingsStore(this)
         notifier = FocusGuardNotifier(this)
         windowManager = getSystemService(WindowManager::class.java)
         val savedState = stateStore.load()
         effectiveSettings = savedState.effectiveSettings
-        alertedSessionKey = savedState.alertState.alertedSessionKey
         createMonitoringChannel()
         notifier.createLimitChannel()
     }
@@ -86,6 +86,7 @@ class UsageWatcherService : Service() {
         handler.removeCallbacks(tickRunnable)
         removeFloatingDebugWindow()
         if (markNotRunning) {
+            sessionStore.clear()
             stateStore.save(WatcherState(isRunning = false, lastTickTimeMillis = null))
         }
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -95,82 +96,237 @@ class UsageWatcherService : Service() {
         val now = System.currentTimeMillis()
         val savedSettings = settingsStore.load()
         val previousState = stateStore.load()
-        val foregroundAppState = if (hasUsageAccessPermission(this)) {
-            readLatestForegroundApp(
-                context = this,
-                gracePeriodMillis = effectiveSettings.gracePeriodMillis,
+        if (!hasUsageAccessPermission(this)) {
+            return WatcherState(
+                isRunning = true,
+                lastTickTimeMillis = now,
+                foregroundAppState = ForegroundAppState.PermissionMissing,
+                alertState = previousState.alertState,
+                effectiveSettings = effectiveSettings,
                 sessionResetTimeMillis = previousState.sessionResetTimeMillis
             )
-        } else {
-            ForegroundAppState.PermissionMissing
         }
-        effectiveSettings = resolveEffectiveSettings(
-            savedSettings = savedSettings,
-            foregroundAppState = foregroundAppState
+
+        val previousSession = sessionStore.load()
+        val snapshot = readForegroundUsageSnapshot(
+            context = this,
+            sinceTimeMillis = previousSession?.lastUpdatedTimeMillis ?: previousState.sessionResetTimeMillis
         )
-        val refreshedForegroundAppState = if (foregroundAppState is ForegroundAppState.Detected) {
-            readLatestForegroundApp(
-                context = this,
-                gracePeriodMillis = effectiveSettings.gracePeriodMillis,
-                sessionResetTimeMillis = previousState.sessionResetTimeMillis
-            )
+        var session = buildNextSessionState(
+            previousSession = previousSession,
+            snapshot = snapshot,
+            savedSettings = savedSettings,
+            currentTimeMillis = now
+        )
+        session = maybeShowLimitExceededNotification(session, now)
+        val currentAlertState = stateStore.load().alertState
+        effectiveSettings = session?.effectiveSettings ?: savedSettings
+
+        if (session != null && session.status != SessionStatus.Ended) {
+            sessionStore.save(session)
         } else {
-            foregroundAppState
+            sessionStore.clear()
         }
-        val alertState = maybeShowLimitExceededNotification(refreshedForegroundAppState, now)
+        val foregroundAppState = foregroundAppStateFromSession(session, snapshot)
+        val alertState = currentAlertState.copy(
+            alertedSessionKey = session?.alertedSessionKey ?: currentAlertState.alertedSessionKey
+        )
 
         return WatcherState(
             isRunning = true,
             lastTickTimeMillis = now,
-            foregroundAppState = refreshedForegroundAppState,
+            foregroundAppState = foregroundAppState,
             alertState = alertState,
             effectiveSettings = effectiveSettings,
             sessionResetTimeMillis = previousState.sessionResetTimeMillis
         )
     }
 
-    private fun resolveEffectiveSettings(
+    private fun buildNextSessionState(
+        previousSession: PersistedSessionState?,
+        snapshot: ForegroundUsageSnapshot,
         savedSettings: FocusGuardSettings,
-        foregroundAppState: ForegroundAppState
-    ): FocusGuardSettings {
-        if (savedSettings == effectiveSettings || isSessionInProgress(foregroundAppState)) {
-            return effectiveSettings
+        currentTimeMillis: Long
+    ): PersistedSessionState? {
+        var session = previousSession
+
+        for (transition in snapshot.transitions.sortedBy { it.timestampMillis }) {
+            session = advanceSessionClock(session, transition.timestampMillis)
+            session = applyForegroundTransition(
+                session = session,
+                transition = transition,
+                savedSettings = savedSettings
+            )
         }
 
-        return savedSettings
+        session = advanceSessionClock(session, currentTimeMillis)
+
+        if (session == null && snapshot.lastForegroundPackageName?.isTrackedApp() == true) {
+            session = startSession(
+                transition = ForegroundTransition(
+                    packageName = snapshot.lastForegroundPackageName,
+                    className = null,
+                    eventType = 0,
+                    timestampMillis = currentTimeMillis
+                ),
+                settings = savedSettings
+            )
+            session = advanceSessionClock(session, currentTimeMillis)
+        }
+
+        return session
+    }
+
+    private fun applyForegroundTransition(
+        session: PersistedSessionState?,
+        transition: ForegroundTransition,
+        savedSettings: FocusGuardSettings
+    ): PersistedSessionState? {
+        if (transition.packageName.isTrackedApp()) {
+            if (session == null ||
+                session.packageName != transition.packageName ||
+                session.status == SessionStatus.Ended
+            ) {
+                return startSession(transition, savedSettings)
+            }
+
+            return session.copy(
+                status = SessionStatus.Active,
+                currentActiveStartedAtMillis = session.currentActiveStartedAtMillis ?: transition.timestampMillis,
+                interruptionStartedAtMillis = null,
+                className = transition.className,
+                eventType = transition.eventType,
+                lastForegroundPackageName = transition.packageName,
+                lastUpdatedTimeMillis = transition.timestampMillis
+            )
+        }
+
+        if (session == null) {
+            return null
+        }
+
+        return if (session.status == SessionStatus.Active) {
+            session.copy(
+                status = SessionStatus.GracePeriod,
+                currentActiveStartedAtMillis = null,
+                interruptionStartedAtMillis = transition.timestampMillis,
+                lastForegroundPackageName = transition.packageName,
+                lastUpdatedTimeMillis = transition.timestampMillis
+            )
+        } else {
+            session.copy(
+                lastForegroundPackageName = transition.packageName,
+                lastUpdatedTimeMillis = transition.timestampMillis
+            )
+        }
+    }
+
+    private fun advanceSessionClock(
+        session: PersistedSessionState?,
+        currentTimeMillis: Long
+    ): PersistedSessionState? {
+        if (session == null || currentTimeMillis < session.lastUpdatedTimeMillis) {
+            return session
+        }
+
+        return when (session.status) {
+            SessionStatus.Active -> {
+                val elapsedDelta = currentTimeMillis - session.lastUpdatedTimeMillis
+                session.copy(
+                    sessionElapsedMillis = session.sessionElapsedMillis + elapsedDelta,
+                    lastUpdatedTimeMillis = currentTimeMillis
+                )
+            }
+
+            SessionStatus.GracePeriod -> {
+                val interruptionStartedAt = session.interruptionStartedAtMillis
+                val hasGraceExpired = interruptionStartedAt != null &&
+                    currentTimeMillis - interruptionStartedAt > session.effectiveSettings.gracePeriodMillis
+
+                session.copy(
+                    status = if (hasGraceExpired) SessionStatus.Ended else SessionStatus.GracePeriod,
+                    lastUpdatedTimeMillis = currentTimeMillis
+                )
+            }
+
+            SessionStatus.Ended -> session.copy(lastUpdatedTimeMillis = currentTimeMillis)
+        }
+    }
+
+    private fun startSession(
+        transition: ForegroundTransition,
+        settings: FocusGuardSettings
+    ): PersistedSessionState {
+        return PersistedSessionState(
+            packageName = transition.packageName,
+            sessionStartedAtMillis = transition.timestampMillis,
+            currentActiveStartedAtMillis = transition.timestampMillis,
+            status = SessionStatus.Active,
+            effectiveSettings = settings,
+            lastUpdatedTimeMillis = transition.timestampMillis,
+            className = transition.className,
+            eventType = transition.eventType,
+            lastForegroundPackageName = transition.packageName
+        )
     }
 
     private fun maybeShowLimitExceededNotification(
-        foregroundAppState: ForegroundAppState,
+        session: PersistedSessionState?,
         currentTimeMillis: Long
-    ): AlertState {
-        val previousAlertState = stateStore.load().alertState
-        val detected = foregroundAppState as? ForegroundAppState.Detected ?: return previousAlertState
-        if (detected.sessionStatus != SessionStatus.Active) {
-            return previousAlertState
+    ): PersistedSessionState? {
+        if (session == null || session.status != SessionStatus.Active) {
+            return session
         }
 
-        val elapsedMillis = calculateSessionElapsedMillis(detected, currentTimeMillis)
-        if (elapsedMillis < effectiveSettings.sessionLimitMillis ||
-            detected.currentActiveElapsedMillis < effectiveSettings.alertDelayAfterResumeMillis ||
-            alertedSessionKey == detected.sessionKey
+        if (session.sessionElapsedMillis < session.effectiveSettings.sessionLimitMillis ||
+            session.currentActiveElapsedMillis < session.effectiveSettings.alertDelayAfterResumeMillis ||
+            session.alertedSessionKey == session.sessionKey
         ) {
-            return previousAlertState
+            return session
         }
 
-        val wasSent = notifier.showLimitExceeded(detected.packageName, elapsedMillis)
-        alertedSessionKey = detected.sessionKey
+        val wasSent = notifier.showLimitExceeded(session.packageName, session.sessionElapsedMillis)
 
         return if (wasSent) {
-            AlertState(
+            val alertState = AlertState(
                 wasSent = true,
                 lastAlertTimeMillis = currentTimeMillis,
-                lastAlertPackageName = detected.packageName,
-                alertedSessionKey = detected.sessionKey
+                lastAlertPackageName = session.packageName,
+                alertedSessionKey = session.sessionKey
             )
+            stateStore.save(stateStore.load().copy(alertState = alertState))
+            session.copy(alertedSessionKey = session.sessionKey)
         } else {
-            previousAlertState
+            session
         }
+    }
+
+    private fun foregroundAppStateFromSession(
+        session: PersistedSessionState?,
+        snapshot: ForegroundUsageSnapshot
+    ): ForegroundAppState {
+        if (session == null || session.status == SessionStatus.Ended) {
+            return snapshot.lastForegroundPackageName
+                ?.let(ForegroundAppState::Untracked)
+                ?: ForegroundAppState.Unknown
+        }
+
+        return ForegroundAppState.Detected(
+            packageName = session.packageName,
+            className = session.className,
+            eventType = session.eventType,
+            timestampMillis = session.sessionStartedAtMillis,
+            isTracked = true,
+            sessionStatus = session.status,
+            lastForegroundPackageName = snapshot.lastForegroundPackageName ?: session.lastForegroundPackageName,
+            interruptionStartedAtMillis = session.interruptionStartedAtMillis,
+            sessionElapsedMillis = session.sessionElapsedMillis,
+            currentActiveElapsedMillis = session.currentActiveElapsedMillis
+        )
+    }
+
+    private fun String.isTrackedApp(): Boolean {
+        return this != packageName && this in TrackedAppPackages
     }
 
     private fun updateMonitoringNotification(state: WatcherState) {

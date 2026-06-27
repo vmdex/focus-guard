@@ -34,6 +34,49 @@ The first working prototype should:
 - avoid notification spam by using a cooldown;
 - show developer/debug information so we can understand Android behavior on a real Pixel 7.
 
+## Future intervention model
+
+The app should not treat Android notifications as the only possible response.
+
+Long term, Focus Guard should think in terms of interventions:
+
+```text
+Rule matched -> Intervention planned -> Intervention delivered
+```
+
+Possible intervention types:
+
+- normal notification;
+- repeated notification;
+- floating overlay;
+- fullscreen overlay;
+- in-app warning;
+- sound or vibration;
+- future app/site blocker.
+
+For the MVP, keep the behavior simple:
+
+```text
+session limit exceeded -> one notification
+```
+
+But the implementation should avoid making notification delivery the permanent center of the domain model.
+
+Future structure idea:
+
+- `SessionState` knows whether a session crossed a rule threshold;
+- `InterventionState` knows what was already delivered for the session;
+- an `InterventionEngine` decides what should happen next;
+- platform-specific notifiers only deliver the selected intervention.
+
+This will make repeated notifications and escalation easier later, for example:
+
+```text
+first alert after limit
+repeat every N minutes while still active
+escalate to overlay after M repeats
+```
+
 ## Session logic
 
 The first preferred strategy is Grace period.
@@ -92,6 +135,17 @@ Questions to decide later:
 - what state should be saved so monitoring can recover after process death;
 - how to avoid duplicate alerts after service/process restart;
 - how to explain these tradeoffs in user-facing settings.
+
+Performance idea to remember:
+
+- `UsageEvents` polling should be delta-based during normal monitoring, reading only events after the last processed timestamp;
+- the larger lookup window should be kept as a fallback for cold start, missing state, or recovery;
+- monitoring off should do no polling at all;
+- monitoring on does not necessarily need a 1 second tick forever;
+- while the foreground app is untracked, polling could be slower;
+- while a tracked app is active and close to its limit, polling can be more frequent;
+- the floating overlay is a debug aid and can update every second during development, but should become optional or less frequent later;
+- background logic should prefer timestamps and persisted session state over constant recomputation.
 
 ## First technical path
 

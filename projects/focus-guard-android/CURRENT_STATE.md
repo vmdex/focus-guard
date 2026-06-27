@@ -35,6 +35,8 @@ FocusGuardApp.kt
 UsageWatcherService.kt
 UsageEventReader.kt
 SessionModels.kt
+PersistedSessionState.kt
+SessionStateStore.kt
 WatcherState.kt
 WatcherStateStore.kt
 FocusGuardSettings.kt
@@ -64,9 +66,11 @@ Monitoring is owned by `UsageWatcherService`, not by `MainActivity`.
 - updates the floating debug overlay;
 - sends limit-exceeded notifications.
 
-`WatcherStateStore` is currently both UI snapshot storage and some lightweight debug/session control storage.
+`SessionStateStore` stores the logical session memory.
 
-Important limitation: session state is still reconstructed from Android `UsageEvents` on each tick. A more explicit persisted session model is a future step.
+`WatcherStateStore` stores the UI/debug snapshot.
+
+`UsageEvents` are now used as foreground transition input, not as the whole source of truth for session memory.
 
 ## Monitoring on/off semantics
 
@@ -104,6 +108,22 @@ Foreground states:
 - `PermissionMissing`;
 - `Untracked(packageName)`;
 - `Detected(...)` for tracked app sessions.
+
+The active logical session is stored as `PersistedSessionState`:
+
+```text
+packageName
+sessionKey
+sessionStartedAtMillis
+sessionElapsedMillis
+currentActiveStartedAtMillis
+interruptionStartedAtMillis
+status
+effectiveSettings
+alertedSessionKey
+lastUpdatedTimeMillis
+lastForegroundPackageName
+```
 
 ## Session timing rules
 
@@ -219,16 +239,15 @@ Dev actions:
 
 `Reset session` is a dev tool.
 
-Because the current session is reconstructed from Android `UsageEvents`, reset uses `sessionResetTimeMillis` as a cutoff.
-
 After reset:
 
-- old usage history before reset is ignored;
+- `SessionStateStore` is cleared;
+- old usage history before reset is ignored when starting a new session without persisted state;
 - if the user is already inside a tracked app, its session starts from the reset time;
 - if the user is outside the tracked app during grace, the old grace session is discarded;
 - alert state is cleared.
 
-This is a temporary dev mechanism. A future explicit `PersistedSessionState` should make reset cleaner.
+`sessionResetTimeMillis` is now only a safety cutoff for the no-session bootstrap path, not the main session memory mechanism.
 
 ## Deferred UI: choose tracked apps
 
@@ -245,24 +264,28 @@ Current note in `CONCEPT.md`:
 - checkmark applies changes and returns to the previous screen;
 - Back/swipe returns without applying changes.
 
+## Battery and performance direction
+
+The app should stay conservative with battery and CPU.
+
+Current direction:
+
+- monitoring off should do no polling at all;
+- normal monitoring should use delta-based `UsageEvents` reads after the last processed timestamp;
+- the larger lookup window should be only a fallback for cold start, missing state, or recovery;
+- tick frequency does not have to stay at 1 second forever;
+- untracked foreground apps can probably be polled less frequently later;
+- tracked active apps close to their limit can be polled more frequently;
+- the floating overlay is currently a debug tool and can update every second during development;
+- release behavior should make the overlay optional or less frequent;
+- background logic should prefer timestamps and persisted session state over recomputing long event history.
+
 ## Important future work
 
 Recommended next technical step:
 
-- create a real `PersistedSessionState` so session memory is not reconstructed only from `UsageEvents`.
-
-Future session persistence should probably store:
-
-```text
-packageName
-sessionKey
-sessionElapsedMillis
-currentActiveStartedAtMillis
-interruptionStartedAtMillis
-status
-effectiveSettings
-alertedSessionKey
-```
+- test the new persisted session memory on the Pixel 7 and fix any lifecycle/foreground edge cases;
+- then consider reducing polling frequency for untracked apps and other battery-friendly behavior.
 
 Other planned work:
 
@@ -307,6 +330,27 @@ This has been passing after the recent Android changes.
 ## Git status note
 
 Recent Android commits include:
+
+```text
+7ce958d Document Android current state
+3af0ece Group Android dev info sections
+ebf4e95 Expand Android session debug info
+1e84905 Resume Android monitoring after app restart
+c901319 Add Android dev session reset
+eb22452 Refine Android debug overlay status
+5464825 Add Android monitoring debug overlay
+3ae033d Refine Android grace alert timing
+```
+
+Current uncommitted work at the time this state was updated:
+
+```text
+Persist session memory in SessionStateStore / PersistedSessionState
+Use UsageEvents as foreground transition input
+Document battery/performance polling direction
+```
+
+Earlier Android commits include:
 
 ```text
 3af0ece Group Android dev info sections
