@@ -22,11 +22,13 @@ class MainActivity : ComponentActivity() {
     private var currentTimeMillis by mutableStateOf(System.currentTimeMillis())
     private var alertState by mutableStateOf(AlertState())
     private var settings by mutableStateOf(FocusGuardSettings())
+    private var debugSettings by mutableStateOf(DebugSettings())
     private var effectiveSettings by mutableStateOf(FocusGuardSettings())
     private var watcherState by mutableStateOf(WatcherState())
     private var launchableApps by mutableStateOf(emptyList<LaunchableApp>())
     private var selectedTrackedPackages by mutableStateOf(emptySet<String>())
     private lateinit var settingsStore: FocusGuardSettingsStore
+    private lateinit var debugSettingsStore: DebugSettingsStore
     private lateinit var watcherStateStore: WatcherStateStore
     private lateinit var sessionStateStore: SessionStateStore
     private lateinit var trackedAppsStore: TrackedAppsStore
@@ -37,11 +39,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         settingsStore = FocusGuardSettingsStore(this)
+        debugSettingsStore = DebugSettingsStore(this)
         watcherStateStore = WatcherStateStore(this)
         sessionStateStore = SessionStateStore(this)
         trackedAppsStore = TrackedAppsStore(this)
         installedAppProvider = InstalledAppProvider(this)
         settings = settingsStore.load()
+        debugSettings = debugSettingsStore.load()
         selectedTrackedPackages = trackedAppsStore.load()
         launchableApps = installedAppProvider.loadLaunchableApps()
         watcherState = watcherStateStore.load()
@@ -59,6 +63,7 @@ class MainActivity : ComponentActivity() {
                     currentTimeMillis = currentTimeMillis,
                     alertState = alertState,
                     settings = settings,
+                    debugSettings = debugSettings,
                     effectiveSettings = effectiveSettings,
                     hasPendingSettings = settings != effectiveSettings,
                     watcherState = watcherState,
@@ -71,6 +76,7 @@ class MainActivity : ComponentActivity() {
                     onStartMonitoring = ::startMonitoring,
                     onStopMonitoring = ::stopMonitoring,
                     onTrackedAppsChanged = ::applyTrackedApps,
+                    onDebugSettingsChanged = ::applyDebugSettings,
                     onSettingsChanged = ::applySettings
                 )
             }
@@ -115,6 +121,12 @@ class MainActivity : ComponentActivity() {
         if (!watcherState.isRunning) {
             effectiveSettings = newSettings
         }
+        refreshUsageData()
+    }
+
+    private fun applyDebugSettings(newSettings: DebugSettings) {
+        debugSettings = newSettings
+        debugSettingsStore.save(newSettings)
         refreshUsageData()
     }
 

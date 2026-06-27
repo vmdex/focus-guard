@@ -26,6 +26,7 @@ class UsageWatcherService : Service() {
     private lateinit var stateStore: WatcherStateStore
     private lateinit var sessionStore: SessionStateStore
     private lateinit var settingsStore: FocusGuardSettingsStore
+    private lateinit var debugSettingsStore: DebugSettingsStore
     private lateinit var trackedAppsStore: TrackedAppsStore
     private lateinit var notifier: FocusGuardNotifier
     private lateinit var windowManager: WindowManager
@@ -48,6 +49,7 @@ class UsageWatcherService : Service() {
         stateStore = WatcherStateStore(this)
         sessionStore = SessionStateStore(this)
         settingsStore = FocusGuardSettingsStore(this)
+        debugSettingsStore = DebugSettingsStore(this)
         trackedAppsStore = TrackedAppsStore(this)
         notifier = FocusGuardNotifier(this)
         windowManager = getSystemService(WindowManager::class.java)
@@ -214,6 +216,11 @@ class UsageWatcherService : Service() {
     }
 
     private fun updateFloatingDebugWindow(state: WatcherState) {
+        if (!debugSettingsStore.load().isFloatingDebugWindowEnabled) {
+            removeFloatingDebugWindow()
+            return
+        }
+
         if (!hasOverlayPermission(this)) {
             removeFloatingDebugWindow()
             return

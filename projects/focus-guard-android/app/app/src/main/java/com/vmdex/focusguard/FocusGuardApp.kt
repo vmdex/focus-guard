@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +51,7 @@ fun FocusGuardApp(
     currentTimeMillis: Long,
     alertState: AlertState,
     settings: FocusGuardSettings,
+    debugSettings: DebugSettings,
     effectiveSettings: FocusGuardSettings,
     hasPendingSettings: Boolean,
     watcherState: WatcherState,
@@ -62,6 +64,7 @@ fun FocusGuardApp(
     onStartMonitoring: () -> Unit,
     onStopMonitoring: () -> Unit,
     onTrackedAppsChanged: (Set<String>) -> Unit,
+    onDebugSettingsChanged: (DebugSettings) -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit
 ) {
     var screen by rememberSaveable { mutableStateOf(FocusGuardScreen.Main) }
@@ -75,6 +78,7 @@ fun FocusGuardApp(
                 currentTimeMillis = currentTimeMillis,
                 alertState = alertState,
                 settings = settings,
+                debugSettings = debugSettings,
                 effectiveSettings = effectiveSettings,
                 hasPendingSettings = hasPendingSettings,
                 watcherState = watcherState,
@@ -86,6 +90,7 @@ fun FocusGuardApp(
                 onStartMonitoring = onStartMonitoring,
                 onStopMonitoring = onStopMonitoring,
                 onChooseApps = { screen = FocusGuardScreen.ChooseApps },
+                onDebugSettingsChanged = onDebugSettingsChanged,
                 onSettingsChanged = onSettingsChanged,
                 modifier = Modifier.padding(innerPadding)
             )
@@ -117,6 +122,7 @@ private fun UsageAccessScreen(
     currentTimeMillis: Long,
     alertState: AlertState,
     settings: FocusGuardSettings,
+    debugSettings: DebugSettings,
     effectiveSettings: FocusGuardSettings,
     hasPendingSettings: Boolean,
     watcherState: WatcherState,
@@ -128,6 +134,7 @@ private fun UsageAccessScreen(
     onStartMonitoring: () -> Unit,
     onStopMonitoring: () -> Unit,
     onChooseApps: () -> Unit,
+    onDebugSettingsChanged: (DebugSettings) -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -179,6 +186,11 @@ private fun UsageAccessScreen(
                 watcherState = watcherState,
                 onStartMonitoring = onStartMonitoring,
                 onStopMonitoring = onStopMonitoring
+            )
+
+            DevSettingsCard(
+                debugSettings = debugSettings,
+                onDebugSettingsChanged = onDebugSettingsChanged
             )
 
             PermissionStatusCard(
@@ -381,7 +393,7 @@ private fun OverlayStatusCard(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
-                text = "Floating debug window",
+                text = "Float window",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold
             )
@@ -469,6 +481,41 @@ private fun MonitoringCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun DevSettingsCard(
+    debugSettings: DebugSettings,
+    onDebugSettingsChanged: (DebugSettings) -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "Dev settings",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Float debug window", style = MaterialTheme.typography.bodyLarge)
+                Switch(
+                    checked = debugSettings.isFloatingDebugWindowEnabled,
+                    onCheckedChange = { isEnabled ->
+                        onDebugSettingsChanged(
+                            debugSettings.copy(isFloatingDebugWindowEnabled = isEnabled)
+                        )
+                    }
+                )
+            }
         }
     }
 }
@@ -852,6 +899,7 @@ private fun UsageAccessScreenPreview() {
             currentTimeMillis = System.currentTimeMillis(),
             alertState = AlertState(),
             settings = FocusGuardSettings(),
+            debugSettings = DebugSettings(),
             effectiveSettings = FocusGuardSettings(),
             hasPendingSettings = false,
             watcherState = WatcherState(),
@@ -863,6 +911,7 @@ private fun UsageAccessScreenPreview() {
             onStartMonitoring = {},
             onStopMonitoring = {},
             onChooseApps = {},
+            onDebugSettingsChanged = {},
             onSettingsChanged = {}
         )
     }
