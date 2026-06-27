@@ -56,6 +56,23 @@ Possible strategies:
 
 If a strategy has its own settings, those settings should appear only after that strategy is selected.
 
+## Monitoring off rule
+
+Important implementation rule for the next Android step:
+
+When Monitoring is off, Focus Guard should be truly idle.
+
+That means:
+
+- no watcher timer should run;
+- no usage detection refresh loop should run;
+- no session elapsed timer should continue;
+- no limit checks should run;
+- no alert notifications should be shown;
+- the app should behave as stopped, not merely hidden.
+
+This should be fixed before or during the move from Activity-owned prototype monitoring to `UsageWatcherService`-owned monitoring.
+
 ## First technical path
 
 Start with:

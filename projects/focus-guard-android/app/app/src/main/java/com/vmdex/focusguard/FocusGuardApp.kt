@@ -87,11 +87,13 @@ private fun UsageAccessScreen(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
-    // For now the Activity owns the watcher loop. A foreground service will own it later.
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(1000)
-            onRefreshUsageData()
+    // Strict off: no automatic usage refresh runs while monitoring is disabled.
+    LaunchedEffect(watcherState.isRunning) {
+        if (watcherState.isRunning) {
+            while (true) {
+                kotlinx.coroutines.delay(1000)
+                onRefreshUsageData()
+            }
         }
     }
 
@@ -143,6 +145,7 @@ private fun UsageAccessScreen(
                 settings = settings,
                 effectiveSettings = effectiveSettings,
                 hasPendingSettings = hasPendingSettings,
+                watcherState = watcherState,
                 onRefreshUsageData = onRefreshUsageData
             )
         }
@@ -244,7 +247,7 @@ private fun MonitoringCard(
             }
 
             Text(
-                text = "This starts the first foreground service shell. Detection still stays in the app screen until the next step.",
+                text = "When monitoring is off, Focus Guard does not refresh usage data, count sessions, or show limit alerts.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -323,6 +326,7 @@ private fun DevInfoCard(
     settings: FocusGuardSettings,
     effectiveSettings: FocusGuardSettings,
     hasPendingSettings: Boolean,
+    watcherState: WatcherState,
     onRefreshUsageData: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -359,6 +363,7 @@ private fun DevInfoCard(
 
             Button(
                 onClick = onRefreshUsageData,
+                enabled = watcherState.isRunning,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(text = "Refresh usage data")
@@ -367,7 +372,7 @@ private fun DevInfoCard(
             Spacer(modifier = Modifier.height(2.dp))
 
             Text(
-                text = "Only tracked apps are detected here. Launcher, recents, system screens, and other untracked apps are ignored for now.",
+                text = "Strict off is enabled: usage data is read only while monitoring is on.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

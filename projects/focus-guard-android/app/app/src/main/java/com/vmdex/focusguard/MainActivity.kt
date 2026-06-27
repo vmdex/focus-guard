@@ -67,10 +67,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun refreshUsageData() {
-        // The UI still drives monitoring in this prototype. A foreground service will own this loop later.
         currentTimeMillis = System.currentTimeMillis()
         watcherState = watcherStateStore.load()
         hasUsageAccess = hasUsageAccessPermission(this)
+
+        if (!watcherState.isRunning) {
+            foregroundAppState = ForegroundAppState.Unknown
+            alertState = AlertState()
+            return
+        }
+
+        // The UI still drives usage detection while monitoring is on. The service will own this loop later.
         foregroundAppState = if (hasUsageAccess) {
             readLatestForegroundApp(this, effectiveSettings.gracePeriodMillis)
         } else {
@@ -126,6 +133,7 @@ class MainActivity : ComponentActivity() {
     private fun startMonitoring() {
         UsageWatcherService.start(this)
         watcherState = WatcherState(isRunning = true, lastTickTimeMillis = System.currentTimeMillis())
+        refreshUsageData()
     }
 
     private fun stopMonitoring() {
