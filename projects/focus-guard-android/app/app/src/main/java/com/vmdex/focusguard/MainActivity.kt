@@ -1,9 +1,12 @@
 package com.vmdex.focusguard
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -14,6 +17,7 @@ import com.vmdex.focusguard.ui.theme.FocusGuardAndroidTheme
 
 class MainActivity : ComponentActivity() {
     private var hasUsageAccess by mutableStateOf(false)
+    private var hasOverlayAccess by mutableStateOf(false)
     private var foregroundAppState by mutableStateOf<ForegroundAppState>(ForegroundAppState.Unknown)
     private var currentTimeMillis by mutableStateOf(System.currentTimeMillis())
     private var alertState by mutableStateOf(AlertState())
@@ -39,6 +43,7 @@ class MainActivity : ComponentActivity() {
             FocusGuardAndroidTheme {
                 FocusGuardApp(
                     hasUsageAccess = hasUsageAccess,
+                    hasOverlayAccess = hasOverlayAccess,
                     foregroundAppState = foregroundAppState,
                     currentTimeMillis = currentTimeMillis,
                     alertState = alertState,
@@ -48,6 +53,7 @@ class MainActivity : ComponentActivity() {
                     watcherState = watcherState,
                     packageName = packageName,
                     onRefreshUsageData = ::refreshUsageData,
+                    onOpenOverlaySettings = ::openOverlaySettings,
                     onStartMonitoring = ::startMonitoring,
                     onStopMonitoring = ::stopMonitoring,
                     onSettingsChanged = ::applySettings
@@ -65,6 +71,7 @@ class MainActivity : ComponentActivity() {
         currentTimeMillis = System.currentTimeMillis()
         watcherState = watcherStateStore.load()
         hasUsageAccess = hasUsageAccessPermission(this)
+        hasOverlayAccess = hasOverlayPermission(this)
 
         if (!watcherState.isRunning) {
             foregroundAppState = ForegroundAppState.Unknown
@@ -115,5 +122,13 @@ class MainActivity : ComponentActivity() {
             arrayOf(Manifest.permission.POST_NOTIFICATIONS),
             NotificationPermissionRequestCode
         )
+    }
+
+    private fun openOverlaySettings() {
+        val intent = Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName")
+        )
+        startActivity(intent)
     }
 }

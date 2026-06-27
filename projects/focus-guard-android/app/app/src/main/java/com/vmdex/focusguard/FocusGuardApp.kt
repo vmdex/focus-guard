@@ -34,6 +34,7 @@ import com.vmdex.focusguard.ui.theme.FocusGuardAndroidTheme
 @Composable
 fun FocusGuardApp(
     hasUsageAccess: Boolean,
+    hasOverlayAccess: Boolean,
     foregroundAppState: ForegroundAppState,
     currentTimeMillis: Long,
     alertState: AlertState,
@@ -43,6 +44,7 @@ fun FocusGuardApp(
     watcherState: WatcherState,
     packageName: String,
     onRefreshUsageData: () -> Unit,
+    onOpenOverlaySettings: () -> Unit,
     onStartMonitoring: () -> Unit,
     onStopMonitoring: () -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit
@@ -50,6 +52,7 @@ fun FocusGuardApp(
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         UsageAccessScreen(
             hasUsageAccess = hasUsageAccess,
+            hasOverlayAccess = hasOverlayAccess,
             foregroundAppState = foregroundAppState,
             currentTimeMillis = currentTimeMillis,
             alertState = alertState,
@@ -59,6 +62,7 @@ fun FocusGuardApp(
             watcherState = watcherState,
             packageName = packageName,
             onRefreshUsageData = onRefreshUsageData,
+            onOpenOverlaySettings = onOpenOverlaySettings,
             onStartMonitoring = onStartMonitoring,
             onStopMonitoring = onStopMonitoring,
             onSettingsChanged = onSettingsChanged,
@@ -70,6 +74,7 @@ fun FocusGuardApp(
 @Composable
 private fun UsageAccessScreen(
     hasUsageAccess: Boolean,
+    hasOverlayAccess: Boolean,
     foregroundAppState: ForegroundAppState,
     currentTimeMillis: Long,
     alertState: AlertState,
@@ -79,6 +84,7 @@ private fun UsageAccessScreen(
     watcherState: WatcherState,
     packageName: String,
     onRefreshUsageData: () -> Unit,
+    onOpenOverlaySettings: () -> Unit,
     onStartMonitoring: () -> Unit,
     onStopMonitoring: () -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit,
@@ -123,6 +129,11 @@ private fun UsageAccessScreen(
                 onOpenSettings = {
                     context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                 }
+            )
+
+            OverlayStatusCard(
+                hasOverlayAccess = hasOverlayAccess,
+                onOpenSettings = onOpenOverlaySettings
             )
 
             MonitoringCard(
@@ -197,6 +208,56 @@ private fun PermissionStatusCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(text = "Open usage access settings")
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverlayStatusCard(
+    hasOverlayAccess: Boolean,
+    onOpenSettings: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "Floating debug window",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Overlay permission", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = if (hasOverlayAccess) "Granted" else "Not granted",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (hasOverlayAccess) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Text(
+                text = "Focus Guard uses this debug window as a visible sign that monitoring is currently active.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Button(
+                onClick = onOpenSettings,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "Open overlay settings")
             }
         }
     }
@@ -508,6 +569,7 @@ private fun UsageAccessScreenPreview() {
     FocusGuardAndroidTheme {
         UsageAccessScreen(
             hasUsageAccess = false,
+            hasOverlayAccess = false,
             foregroundAppState = ForegroundAppState.PermissionMissing,
             currentTimeMillis = System.currentTimeMillis(),
             alertState = AlertState(),
@@ -517,6 +579,7 @@ private fun UsageAccessScreenPreview() {
             watcherState = WatcherState(),
             packageName = "com.vmdex.focusguard",
             onRefreshUsageData = {},
+            onOpenOverlaySettings = {},
             onStartMonitoring = {},
             onStopMonitoring = {},
             onSettingsChanged = {}
