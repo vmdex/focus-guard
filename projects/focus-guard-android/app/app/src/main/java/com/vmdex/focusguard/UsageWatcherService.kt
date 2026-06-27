@@ -223,7 +223,7 @@ class UsageWatcherService : Service() {
     }
 
     private fun createFloatingDebugView(): TextView {
-        return TextView(this).apply {
+        return FloatingDebugTextView(this).apply {
             text = "FG"
             setTextColor(Color.WHITE)
             textSize = 13f
@@ -377,6 +377,11 @@ class UsageWatcherService : Service() {
                     true
                 }
 
+                MotionEvent.ACTION_UP -> {
+                    view.performClick()
+                    true
+                }
+
                 else -> false
             }
         }
@@ -400,5 +405,12 @@ class UsageWatcherService : Service() {
             val intent = Intent(context, UsageWatcherService::class.java).setAction(ActionStop)
             context.startService(intent)
         }
+    }
+}
+
+private class FloatingDebugTextView(context: Context) : TextView(context) {
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
     }
 }

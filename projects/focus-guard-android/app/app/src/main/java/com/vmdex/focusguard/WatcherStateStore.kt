@@ -1,6 +1,7 @@
 package com.vmdex.focusguard
 
 import android.content.Context
+import androidx.core.content.edit
 
 class WatcherStateStore(context: Context) {
     private val preferences = context.getSharedPreferences(WatcherStateStoreName, Context.MODE_PRIVATE)
@@ -21,51 +22,48 @@ class WatcherStateStore(context: Context) {
     }
 
     fun save(state: WatcherState) {
-        val editor = preferences.edit()
-            .putBoolean(IsRunningKey, state.isRunning)
-            .putLong(LastTickTimeMillisKey, state.lastTickTimeMillis ?: 0L)
-            .putLong(SessionResetTimeMillisKey, state.sessionResetTimeMillis ?: 0L)
-            .putInt(EffectiveGracePeriodSecondsKey, state.effectiveSettings.gracePeriodSeconds)
-            .putInt(EffectiveSessionLimitSecondsKey, state.effectiveSettings.sessionLimitSeconds)
-            .putInt(EffectiveAlertDelayAfterResumeSecondsKey, state.effectiveSettings.alertDelayAfterResumeSeconds)
-            .putBoolean(AlertWasSentKey, state.alertState.wasSent)
-            .putLong(AlertLastTimeMillisKey, state.alertState.lastAlertTimeMillis ?: 0L)
-            .putString(AlertLastPackageNameKey, state.alertState.lastAlertPackageName)
-            .putString(AlertedSessionKeyKey, state.alertState.alertedSessionKey)
+        preferences.edit {
+            putBoolean(IsRunningKey, state.isRunning)
+            putLong(LastTickTimeMillisKey, state.lastTickTimeMillis ?: 0L)
+            putLong(SessionResetTimeMillisKey, state.sessionResetTimeMillis ?: 0L)
+            putInt(EffectiveGracePeriodSecondsKey, state.effectiveSettings.gracePeriodSeconds)
+            putInt(EffectiveSessionLimitSecondsKey, state.effectiveSettings.sessionLimitSeconds)
+            putInt(EffectiveAlertDelayAfterResumeSecondsKey, state.effectiveSettings.alertDelayAfterResumeSeconds)
+            putBoolean(AlertWasSentKey, state.alertState.wasSent)
+            putLong(AlertLastTimeMillisKey, state.alertState.lastAlertTimeMillis ?: 0L)
+            putString(AlertLastPackageNameKey, state.alertState.lastAlertPackageName)
+            putString(AlertedSessionKeyKey, state.alertState.alertedSessionKey)
 
-        when (val foregroundState = state.foregroundAppState) {
-            ForegroundAppState.PermissionMissing -> {
-                editor.putString(ForegroundStateKindKey, ForegroundStateKindPermissionMissing)
-            }
+            when (val foregroundState = state.foregroundAppState) {
+                ForegroundAppState.PermissionMissing -> {
+                    putString(ForegroundStateKindKey, ForegroundStateKindPermissionMissing)
+                }
 
-            ForegroundAppState.Unknown -> {
-                editor.putString(ForegroundStateKindKey, ForegroundStateKindUnknown)
-            }
+                ForegroundAppState.Unknown -> {
+                    putString(ForegroundStateKindKey, ForegroundStateKindUnknown)
+                }
 
-            is ForegroundAppState.Untracked -> {
-                editor
-                    .putString(ForegroundStateKindKey, ForegroundStateKindUntracked)
-                    .putString(ForegroundPackageNameKey, foregroundState.packageName)
-            }
+                is ForegroundAppState.Untracked -> {
+                    putString(ForegroundStateKindKey, ForegroundStateKindUntracked)
+                    putString(ForegroundPackageNameKey, foregroundState.packageName)
+                }
 
-            is ForegroundAppState.Detected -> {
-                editor
-                    .putString(ForegroundStateKindKey, ForegroundStateKindDetected)
-                    .putString(ForegroundPackageNameKey, foregroundState.packageName)
-                    .putString(ForegroundClassNameKey, foregroundState.className)
-                    .putInt(ForegroundEventTypeKey, foregroundState.eventType)
-                    .putLong(ForegroundTimestampMillisKey, foregroundState.timestampMillis)
-                    .putBoolean(ForegroundIsTrackedKey, foregroundState.isTracked)
-                    .putString(ForegroundSessionStatusKey, foregroundState.sessionStatus.name)
-                    .putString(ForegroundLastPackageNameKey, foregroundState.lastForegroundPackageName)
-                    .putLong(ForegroundInterruptionStartedAtMillisKey, foregroundState.interruptionStartedAtMillis ?: 0L)
-                    .putLong(ForegroundSessionElapsedMillisKey, foregroundState.sessionElapsedMillis)
-                    .putLong(ForegroundCurrentActiveElapsedMillisKey, foregroundState.currentActiveElapsedMillis)
-                    .putBoolean(ForegroundIsAlertSentForSessionKey, foregroundState.isAlertSentForSession)
+                is ForegroundAppState.Detected -> {
+                    putString(ForegroundStateKindKey, ForegroundStateKindDetected)
+                    putString(ForegroundPackageNameKey, foregroundState.packageName)
+                    putString(ForegroundClassNameKey, foregroundState.className)
+                    putInt(ForegroundEventTypeKey, foregroundState.eventType)
+                    putLong(ForegroundTimestampMillisKey, foregroundState.timestampMillis)
+                    putBoolean(ForegroundIsTrackedKey, foregroundState.isTracked)
+                    putString(ForegroundSessionStatusKey, foregroundState.sessionStatus.name)
+                    putString(ForegroundLastPackageNameKey, foregroundState.lastForegroundPackageName)
+                    putLong(ForegroundInterruptionStartedAtMillisKey, foregroundState.interruptionStartedAtMillis ?: 0L)
+                    putLong(ForegroundSessionElapsedMillisKey, foregroundState.sessionElapsedMillis)
+                    putLong(ForegroundCurrentActiveElapsedMillisKey, foregroundState.currentActiveElapsedMillis)
+                    putBoolean(ForegroundIsAlertSentForSessionKey, foregroundState.isAlertSentForSession)
+                }
             }
         }
-
-        editor.apply()
     }
 
     private fun readForegroundAppState(): ForegroundAppState {

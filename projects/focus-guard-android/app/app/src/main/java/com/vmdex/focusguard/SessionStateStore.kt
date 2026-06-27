@@ -1,6 +1,7 @@
 package com.vmdex.focusguard
 
 import android.content.Context
+import androidx.core.content.edit
 
 class SessionStateStore(context: Context) {
     private val preferences = context.getSharedPreferences(SessionStateStoreName, Context.MODE_PRIVATE)
@@ -38,29 +39,29 @@ class SessionStateStore(context: Context) {
     }
 
     fun save(state: PersistedSessionState) {
-        preferences.edit()
-            .putString(SessionPackageNameKey, state.packageName)
-            .putLong(SessionStartedAtMillisKey, state.sessionStartedAtMillis)
-            .putLong(SessionElapsedMillisKey, state.sessionElapsedMillis)
-            .putLong(CurrentActiveStartedAtMillisKey, state.currentActiveStartedAtMillis ?: 0L)
-            .putLong(InterruptionStartedAtMillisKey, state.interruptionStartedAtMillis ?: 0L)
-            .putString(SessionStatusKey, state.status.name)
-            .putInt(EffectiveGracePeriodSecondsKey, state.effectiveSettings.gracePeriodSeconds)
-            .putInt(EffectiveSessionLimitSecondsKey, state.effectiveSettings.sessionLimitSeconds)
-            .putInt(
+        preferences.edit {
+            putString(SessionPackageNameKey, state.packageName)
+            putLong(SessionStartedAtMillisKey, state.sessionStartedAtMillis)
+            putLong(SessionElapsedMillisKey, state.sessionElapsedMillis)
+            putLong(CurrentActiveStartedAtMillisKey, state.currentActiveStartedAtMillis ?: 0L)
+            putLong(InterruptionStartedAtMillisKey, state.interruptionStartedAtMillis ?: 0L)
+            putString(SessionStatusKey, state.status.name)
+            putInt(EffectiveGracePeriodSecondsKey, state.effectiveSettings.gracePeriodSeconds)
+            putInt(EffectiveSessionLimitSecondsKey, state.effectiveSettings.sessionLimitSeconds)
+            putInt(
                 EffectiveAlertDelayAfterResumeSecondsKey,
                 state.effectiveSettings.alertDelayAfterResumeSeconds
             )
-            .putString(AlertedSessionKeyKey, state.alertedSessionKey)
-            .putLong(LastUpdatedTimeMillisKey, state.lastUpdatedTimeMillis)
-            .putString(SessionClassNameKey, state.className)
-            .putInt(SessionEventTypeKey, state.eventType)
-            .putString(LastForegroundPackageNameKey, state.lastForegroundPackageName)
-            .apply()
+            putString(AlertedSessionKeyKey, state.alertedSessionKey)
+            putLong(LastUpdatedTimeMillisKey, state.lastUpdatedTimeMillis)
+            putString(SessionClassNameKey, state.className)
+            putInt(SessionEventTypeKey, state.eventType)
+            putString(LastForegroundPackageNameKey, state.lastForegroundPackageName)
+        }
     }
 
     fun clear() {
-        preferences.edit().clear().apply()
+        preferences.edit { clear() }
     }
 
     private fun readEffectiveSettings(): FocusGuardSettings {

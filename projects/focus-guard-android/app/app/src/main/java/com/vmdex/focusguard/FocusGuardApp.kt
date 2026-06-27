@@ -29,6 +29,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.vmdex.focusguard.ui.theme.FocusGuardAndroidTheme
+import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun FocusGuardApp(
@@ -99,7 +100,7 @@ private fun UsageAccessScreen(
     LaunchedEffect(watcherState.isRunning) {
         if (watcherState.isRunning) {
             while (true) {
-                kotlinx.coroutines.delay(1000)
+                kotlinx.coroutines.delay(1.seconds)
                 onRefreshUsageData()
             }
         }
@@ -155,7 +156,6 @@ private fun UsageAccessScreen(
                 foregroundAppState = foregroundAppState,
                 currentTimeMillis = currentTimeMillis,
                 alertState = alertState,
-                settings = settings,
                 effectiveSettings = effectiveSettings,
                 hasPendingSettings = hasPendingSettings,
                 watcherState = watcherState,
@@ -395,7 +395,6 @@ private fun DevInfoCard(
     foregroundAppState: ForegroundAppState,
     currentTimeMillis: Long,
     alertState: AlertState,
-    settings: FocusGuardSettings,
     effectiveSettings: FocusGuardSettings,
     hasPendingSettings: Boolean,
     watcherState: WatcherState,

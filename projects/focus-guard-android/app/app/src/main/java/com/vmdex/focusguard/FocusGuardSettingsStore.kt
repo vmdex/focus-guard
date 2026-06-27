@@ -1,6 +1,7 @@
 package com.vmdex.focusguard
 
 import android.content.Context
+import androidx.core.content.edit
 
 class FocusGuardSettingsStore(context: Context) {
     private val preferences = context.getSharedPreferences(SettingsStoreName, Context.MODE_PRIVATE)
@@ -17,11 +18,11 @@ class FocusGuardSettingsStore(context: Context) {
     }
 
     fun save(settings: FocusGuardSettings) {
-        preferences.edit()
-            .putInt(GracePeriodSecondsKey, settings.gracePeriodSeconds)
-            .putInt(SessionLimitSecondsKey, settings.sessionLimitSeconds)
-            .putInt(AlertDelayAfterResumeSecondsKey, settings.alertDelayAfterResumeSeconds)
-            .apply()
+        preferences.edit {
+            putInt(GracePeriodSecondsKey, settings.gracePeriodSeconds)
+            putInt(SessionLimitSecondsKey, settings.sessionLimitSeconds)
+            putInt(AlertDelayAfterResumeSecondsKey, settings.alertDelayAfterResumeSeconds)
+        }
     }
 
     private fun readSeconds(key: String, fallbackMillis: Long): Long {

@@ -3,7 +3,6 @@ package com.vmdex.focusguard
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -13,6 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.net.toUri
 import com.vmdex.focusguard.ui.theme.FocusGuardAndroidTheme
 
 class MainActivity : ComponentActivity() {
@@ -149,7 +149,7 @@ class MainActivity : ComponentActivity() {
     private fun openOverlaySettings() {
         val intent = Intent(
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:$packageName")
+            "package:$packageName".toUri()
         )
         startActivity(intent)
     }

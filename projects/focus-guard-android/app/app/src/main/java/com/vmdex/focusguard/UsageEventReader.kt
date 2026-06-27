@@ -3,6 +3,7 @@ package com.vmdex.focusguard
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import android.os.Build
 
 fun readForegroundUsageSnapshot(
     context: Context,
@@ -55,13 +56,34 @@ data class ForegroundTransition(
 )
 
 fun Int.isForegroundStartEventType(): Boolean {
-    return this == UsageEvents.Event.ACTIVITY_RESUMED
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        this == UsageEvents.Event.ACTIVITY_RESUMED
+    } else {
+        isLegacyForegroundStartEventType()
+    }
 }
 
 fun usageEventTypeLabel(eventType: Int): String {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        return when (eventType) {
+            UsageEvents.Event.ACTIVITY_RESUMED -> "ACTIVITY_RESUMED"
+            UsageEvents.Event.ACTIVITY_PAUSED -> "ACTIVITY_PAUSED"
+            else -> eventType.toString()
+        }
+    }
+
     return when (eventType) {
-        UsageEvents.Event.ACTIVITY_RESUMED -> "ACTIVITY_RESUMED"
-        UsageEvents.Event.ACTIVITY_PAUSED -> "ACTIVITY_PAUSED"
+        legacyForegroundStartEventType() -> "MOVE_TO_FOREGROUND"
         else -> eventType.toString()
     }
+}
+
+@Suppress("DEPRECATION")
+private fun Int.isLegacyForegroundStartEventType(): Boolean {
+    return this == UsageEvents.Event.MOVE_TO_FOREGROUND
+}
+
+@Suppress("DEPRECATION")
+private fun legacyForegroundStartEventType(): Int {
+    return UsageEvents.Event.MOVE_TO_FOREGROUND
 }

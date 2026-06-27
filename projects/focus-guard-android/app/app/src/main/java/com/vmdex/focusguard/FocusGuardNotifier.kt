@@ -11,10 +11,6 @@ import androidx.core.app.NotificationManagerCompat
 
 class FocusGuardNotifier(private val context: Context) {
     fun createLimitChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return
-        }
-
         val channel = NotificationChannel(
             LimitNotificationChannelId,
             "Focus Guard alerts",
