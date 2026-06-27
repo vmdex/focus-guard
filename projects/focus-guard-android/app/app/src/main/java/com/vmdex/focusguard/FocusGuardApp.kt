@@ -33,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -559,15 +560,34 @@ private fun SecondsField(
     value: Int,
     onValueChanged: (Int) -> Unit
 ) {
+    var text by rememberSaveable(label) { mutableStateOf(value.toString()) }
+
+    LaunchedEffect(value) {
+        if (text.isNotBlank() && text.toIntOrNull() != value) {
+            text = value.toString()
+        }
+    }
+
     OutlinedTextField(
-        value = value.toString(),
-        onValueChange = { text ->
-            text.toIntOrNull()
+        value = text,
+        onValueChange = { nextText ->
+            if (nextText.any { !it.isDigit() }) {
+                return@OutlinedTextField
+            }
+
+            text = nextText
+            nextText.toIntOrNull()
                 ?.coerceAtLeast(1)
                 ?.let(onValueChanged)
         },
         label = { Text(text = label) },
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { focusState ->
+                if (!focusState.isFocused && text.isBlank()) {
+                    text = value.toString()
+                }
+            },
         singleLine = true,
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number)
     )
