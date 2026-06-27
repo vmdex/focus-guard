@@ -165,7 +165,7 @@ private fun UsageAccessScreen(
                 )
             }
 
-            DevSettingsCard(
+            FocusSettingsCard(
                 settings = settings,
                 onSettingsChanged = onSettingsChanged
             )
@@ -506,7 +506,7 @@ private fun TrackedAppsCard(
 }
 
 @Composable
-private fun DevSettingsCard(
+private fun FocusSettingsCard(
     settings: FocusGuardSettings,
     onSettingsChanged: (FocusGuardSettings) -> Unit
 ) {
@@ -516,7 +516,7 @@ private fun DevSettingsCard(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
-                text = "Dev settings",
+                text = "Focus settings",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold
             )
