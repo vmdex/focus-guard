@@ -1,6 +1,7 @@
 package com.vmdex.focusguard
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -355,6 +356,114 @@ class SessionEngineTest {
         assertNull(interventionState.notificationLeftMillis)
     }
 
+    // Перевіряємо, що alert не повторюється в тій самій session навіть після виходу і повернення через grace.
+    @Test
+    fun alertDoesNotRepeatAfterReturningToAlreadyAlertedSession() {
+        val alertedActiveSession = activeSession(
+            sessionElapsedMillis = 7_000L,
+            currentActiveStartedAtMillis = 1_000L,
+            lastUpdatedTimeMillis = 8_000L
+        ).let { it.copy(alertedSessionKey = it.sessionKey) }
+
+        val graceResult = engine.buildNextSession(
+            previousSession = alertedActiveSession,
+            snapshot = snapshot(
+                lastForegroundPackageName = LauncherPackage,
+                transition(LauncherPackage, 9_000L)
+            ),
+            savedSettings = settings,
+            currentTimeMillis = 10_000L
+        )
+        val graceSession = requireNotNull(graceResult.session)
+        assertEquals(SessionStatus.GracePeriod, graceSession.status)
+        assertNull(graceResult.limitAlertRequest)
+
+        val returnedResult = engine.buildNextSession(
+            previousSession = graceSession,
+            snapshot = snapshot(
+                lastForegroundPackageName = ChromePackage,
+                transition(ChromePackage, 11_000L)
+            ),
+            savedSettings = settings,
+            currentTimeMillis = 14_000L
+        )
+
+        val returnedSession = requireNotNull(returnedResult.session)
+        assertEquals(SessionStatus.Active, returnedSession.status)
+        assertEquals(alertedActiveSession.sessionKey, returnedSession.alertedSessionKey)
+        assertNull(returnedResult.limitAlertRequest)
+    }
+
+    // Перевіряємо, що після sent overlay показує саме Notification sent.
+    @Test
+    fun floatingOverlayShowsNotificationSentAfterAlert() {
+        val session = activeSession(
+            sessionElapsedMillis = 7_000L,
+            currentActiveStartedAtMillis = 1_000L,
+            lastUpdatedTimeMillis = 8_000L
+        ).let { it.copy(alertedSessionKey = it.sessionKey) }
+        val overlayText = floatingDebugTextForState(watcherStateForSession(session))
+
+        assertEquals(
+            """
+            Tracking: chrome
+            Session: 00:07
+            Limit left: 00:00
+            Notification sent
+            """.trimIndent(),
+            overlayText
+        )
+    }
+
+    // Перевіряємо, що resume delay не показується в overlay, якщо notification уже sent для session.
+    @Test
+    fun floatingOverlayDoesNotShowResumeDelayAfterNotificationWasSent() {
+        val session = activeSession(
+            sessionElapsedMillis = 7_000L,
+            currentActiveStartedAtMillis = 12_000L,
+            lastUpdatedTimeMillis = 13_000L
+        ).let { it.copy(alertedSessionKey = it.sessionKey) }
+        val overlayText = floatingDebugTextForState(watcherStateForSession(session))
+
+        assertEquals(InterventionNotificationStatus.Sent, interventionStateForSession(session).notificationStatus)
+        assertFalse(overlayText.contains("resume delay"))
+        assertFalse(overlayText.contains("Notification left"))
+    }
+
+    // Перевіряємо, що session стабільно переживає interruption/grace і не рахує elapsed поза tracked app.
+    @Test
+    fun sessionStaysStableAcrossInterruptionAndGraceReturn() {
+        val graceResult = engine.buildNextSession(
+            previousSession = null,
+            snapshot = snapshot(
+                lastForegroundPackageName = LauncherPackage,
+                transition(ChromePackage, 1_000L),
+                transition(LauncherPackage, 4_000L)
+            ),
+            savedSettings = settings,
+            currentTimeMillis = 9_000L
+        )
+        val graceSession = requireNotNull(graceResult.session)
+        assertEquals(SessionStatus.GracePeriod, graceSession.status)
+        assertEquals(3_000L, graceSession.sessionElapsedMillis)
+
+        val returnedResult = engine.buildNextSession(
+            previousSession = graceSession,
+            snapshot = snapshot(
+                lastForegroundPackageName = ChromePackage,
+                transition(ChromePackage, 10_000L)
+            ),
+            savedSettings = settings,
+            currentTimeMillis = 12_000L
+        )
+
+        val returnedSession = requireNotNull(returnedResult.session)
+        assertEquals(SessionStatus.Active, returnedSession.status)
+        assertEquals(5_000L, returnedSession.sessionElapsedMillis)
+        assertEquals(2_000L, returnedSession.currentActiveElapsedMillis)
+        assertEquals(graceSession.sessionKey, returnedSession.sessionKey)
+    }
+
     private fun snapshot(
         lastForegroundPackageName: String?,
         vararg transitions: ForegroundTransition
@@ -388,6 +497,27 @@ class SessionEngineTest {
             effectiveSettings = settings,
             lastUpdatedTimeMillis = lastUpdatedTimeMillis,
             lastForegroundPackageName = ChromePackage
+        )
+    }
+
+    private fun watcherStateForSession(session: PersistedSessionState): WatcherState {
+        return WatcherState(
+            isRunning = true,
+            foregroundAppState = ForegroundAppState.Detected(
+                packageName = session.packageName,
+                className = session.className,
+                eventType = session.eventType,
+                timestampMillis = session.sessionStartedAtMillis,
+                isTracked = true,
+                sessionStatus = session.status,
+                lastForegroundPackageName = session.lastForegroundPackageName,
+                interruptionStartedAtMillis = session.interruptionStartedAtMillis,
+                sessionElapsedMillis = session.sessionElapsedMillis,
+                currentActiveElapsedMillis = session.currentActiveElapsedMillis,
+                isAlertSentForSession = session.alertedSessionKey == session.sessionKey
+            ),
+            interventionState = interventionStateForSession(session),
+            effectiveSettings = session.effectiveSettings
         )
     }
 

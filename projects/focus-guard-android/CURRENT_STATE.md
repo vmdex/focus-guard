@@ -358,6 +358,9 @@ The tests simulate foreground transitions and timestamps directly. Covered scena
 - limit alert fires once per session;
 - alert waits for `alertDelayAfterResumeMillis` after returning;
 - intervention state waits for limit, waits for resume delay, and shows sent after notification delivery;
+- floating overlay formatter shows `Notification sent` after delivery and does not show resume delay for an already-alerted session;
+- an already-alerted session does not repeat alert after leaving and returning during grace;
+- sessions stay stable across interruption/grace return and do not count untracked time;
 - effective settings stay attached to an existing session;
 - no previous session with tracked foreground starts fresh at the current time.
 
