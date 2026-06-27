@@ -164,6 +164,16 @@ private fun UsageAccessScreen(
                 )
             }
 
+            DevSettingsCard(
+                settings = settings,
+                onSettingsChanged = onSettingsChanged
+            )
+
+            TrackedAppsCard(
+                selectedTrackedPackages = selectedTrackedPackages,
+                onChooseApps = onChooseApps
+            )
+
             PermissionStatusCard(
                 hasUsageAccess = hasUsageAccess,
                 onOpenSettings = {
@@ -180,16 +190,6 @@ private fun UsageAccessScreen(
                 watcherState = watcherState,
                 onStartMonitoring = onStartMonitoring,
                 onStopMonitoring = onStopMonitoring
-            )
-
-            TrackedAppsCard(
-                selectedTrackedPackages = selectedTrackedPackages,
-                onChooseApps = onChooseApps
-            )
-
-            DevSettingsCard(
-                settings = settings,
-                onSettingsChanged = onSettingsChanged
             )
 
             DevInfoCard(
