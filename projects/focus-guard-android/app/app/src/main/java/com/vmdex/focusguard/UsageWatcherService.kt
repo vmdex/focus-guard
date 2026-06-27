@@ -55,7 +55,7 @@ class UsageWatcherService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ActionStop) {
-            stopMonitoring()
+            stopMonitoring(markNotRunning = true)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -65,7 +65,7 @@ class UsageWatcherService : Service() {
     }
 
     override fun onDestroy() {
-        stopMonitoring()
+        stopMonitoring(markNotRunning = false)
         super.onDestroy()
     }
 
@@ -80,10 +80,12 @@ class UsageWatcherService : Service() {
         handler.postDelayed(tickRunnable, WatcherTickMillis)
     }
 
-    private fun stopMonitoring() {
+    private fun stopMonitoring(markNotRunning: Boolean) {
         handler.removeCallbacks(tickRunnable)
         removeFloatingDebugWindow()
-        stateStore.save(WatcherState(isRunning = false, lastTickTimeMillis = null))
+        if (markNotRunning) {
+            stateStore.save(WatcherState(isRunning = false, lastTickTimeMillis = null))
+        }
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 

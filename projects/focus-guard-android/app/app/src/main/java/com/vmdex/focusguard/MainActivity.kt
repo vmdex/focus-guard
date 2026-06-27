@@ -37,6 +37,7 @@ class MainActivity : ComponentActivity() {
         watcherState = watcherStateStore.load()
         effectiveSettings = settings
         requestNotificationPermissionIfNeeded()
+        resumeMonitoringServiceIfNeeded()
         refreshUsageData()
 
         setContent {
@@ -65,6 +66,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        resumeMonitoringServiceIfNeeded()
         refreshUsageData()
     }
 
@@ -84,6 +86,12 @@ class MainActivity : ComponentActivity() {
         foregroundAppState = watcherState.foregroundAppState
         alertState = watcherState.alertState
         effectiveSettings = watcherState.effectiveSettings
+    }
+
+    private fun resumeMonitoringServiceIfNeeded() {
+        if (watcherStateStore.load().isRunning) {
+            UsageWatcherService.start(this)
+        }
     }
 
     private fun applySettings(newSettings: FocusGuardSettings) {
