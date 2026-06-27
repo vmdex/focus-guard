@@ -309,6 +309,52 @@ class SessionEngineTest {
         assertNull(result.limitAlertRequest)
     }
 
+    // Перевіряємо, що intervention state показує очікування limit, коли session ще не дійшла до ліміту.
+    @Test
+    fun interventionWaitsForLimitBeforeSessionLimit() {
+        val session = activeSession(
+            sessionElapsedMillis = 3_000L,
+            currentActiveStartedAtMillis = 1_000L,
+            lastUpdatedTimeMillis = 4_000L
+        )
+
+        val interventionState = interventionStateForSession(session)
+
+        assertEquals(InterventionNotificationStatus.WaitingLimit, interventionState.notificationStatus)
+        assertEquals(2_000L, interventionState.notificationLeftMillis)
+        assertEquals(session.sessionKey, interventionState.sessionKey)
+    }
+
+    // Перевіряємо, що intervention state показує resume delay, якщо session вже over limit, але користувач щойно повернувся.
+    @Test
+    fun interventionWaitsForResumeDelayWhenOverLimitAfterReturn() {
+        val session = activeSession(
+            sessionElapsedMillis = 6_000L,
+            currentActiveStartedAtMillis = 8_000L,
+            lastUpdatedTimeMillis = 9_000L
+        )
+
+        val interventionState = interventionStateForSession(session)
+
+        assertEquals(InterventionNotificationStatus.WaitingResumeDelay, interventionState.notificationStatus)
+        assertEquals(1_000L, interventionState.notificationLeftMillis)
+    }
+
+    // Перевіряємо, що intervention state показує sent, якщо notification вже відправлений для цієї session.
+    @Test
+    fun interventionShowsSentAfterSessionWasAlerted() {
+        val session = activeSession(
+            sessionElapsedMillis = 7_000L,
+            currentActiveStartedAtMillis = 1_000L,
+            lastUpdatedTimeMillis = 8_000L
+        ).let { it.copy(alertedSessionKey = it.sessionKey) }
+
+        val interventionState = interventionStateForSession(session)
+
+        assertEquals(InterventionNotificationStatus.Sent, interventionState.notificationStatus)
+        assertNull(interventionState.notificationLeftMillis)
+    }
+
     private fun snapshot(
         lastForegroundPackageName: String?,
         vararg transitions: ForegroundTransition
@@ -325,6 +371,23 @@ class SessionEngineTest {
             className = null,
             eventType = 1,
             timestampMillis = timestampMillis
+        )
+    }
+
+    private fun activeSession(
+        sessionElapsedMillis: Long,
+        currentActiveStartedAtMillis: Long,
+        lastUpdatedTimeMillis: Long
+    ): PersistedSessionState {
+        return PersistedSessionState(
+            packageName = ChromePackage,
+            sessionStartedAtMillis = 1_000L,
+            sessionElapsedMillis = sessionElapsedMillis,
+            currentActiveStartedAtMillis = currentActiveStartedAtMillis,
+            status = SessionStatus.Active,
+            effectiveSettings = settings,
+            lastUpdatedTimeMillis = lastUpdatedTimeMillis,
+            lastForegroundPackageName = ChromePackage
         )
     }
 

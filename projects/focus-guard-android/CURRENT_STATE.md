@@ -73,6 +73,11 @@ Monitoring is owned by `UsageWatcherService`, not by `MainActivity`.
 
 `UsageEvents` are now used as foreground transition input, not as the whole source of truth for session memory.
 
+Foreground-start detection uses:
+
+- `UsageEvents.Event.ACTIVITY_RESUMED` on Android 10+;
+- `UsageEvents.Event.MOVE_TO_FOREGROUND` only as a legacy fallback on Android 8/9.
+
 `SessionEngine` owns the pure session rules. It has no Android service, notification, store, or overlay dependency.
 
 `UsageWatcherService` now acts mostly as wiring:
@@ -82,6 +87,7 @@ Monitoring is owned by `UsageWatcherService`, not by `MainActivity`.
 - calls `SessionEngine`;
 - persists the returned session;
 - sends Android notifications when the engine returns a limit-alert request;
+- derives `InterventionState` for current notification/debug display;
 - updates the foreground notification and floating overlay.
 
 ## Monitoring on/off semantics
@@ -175,7 +181,26 @@ alertedSessionKey != current sessionKey
 
 `alertDelayAfterResumeMillis` prevents an immediate alert when the user returns to a tracked app and the total session time is already over the limit.
 
-`AlertState.alertedSessionKey` is persisted so the UI can show which session was already alerted and the service can restore duplicate-alert protection after restart.
+`PersistedSessionState.alertedSessionKey` is the logical duplicate-alert protection for the active session.
+
+`AlertState` is UI/debug history for the last delivered alert:
+
+```text
+wasSent
+lastAlertTimeMillis
+lastAlertPackageName
+alertedSessionKey
+```
+
+`InterventionState` is current debug/display state for notification behavior:
+
+```text
+notificationStatus = NotNeeded / WaitingLimit / WaitingResumeDelay / ReadyToNotify / Sent
+notificationLeftMillis
+sessionKey
+```
+
+This is the first small split between alert history and intervention status. It prepares the code for future repeated notifications, floating overlays, fullscreen interventions, and other intervention types without a large refactor yet.
 
 ## Debug overlay
 
@@ -213,6 +238,12 @@ If the alert is waiting specifically because of the resume delay:
 Notification left: 00:02 (resume delay)
 ```
 
+After the notification was already delivered for the current session:
+
+```text
+Notification sent
+```
+
 The overlay is draggable.
 
 ## Current UI
@@ -240,6 +271,7 @@ Dev info is grouped into sections:
 - Foreground;
 - Session;
 - Alerts;
+- Intervention;
 - Actions.
 
 Dev actions:
@@ -258,6 +290,7 @@ After reset:
 - if the user is already inside a tracked app, its session starts from the reset time;
 - if the user is outside the tracked app during grace, the old grace session is discarded;
 - alert state is cleared.
+- intervention state is cleared.
 
 `sessionResetTimeMillis` is now only a safety cutoff for the no-session bootstrap path, not the main session memory mechanism.
 
@@ -324,6 +357,7 @@ The tests simulate foreground transitions and timestamps directly. Covered scena
 - grace expiry ends the session;
 - limit alert fires once per session;
 - alert waits for `alertDelayAfterResumeMillis` after returning;
+- intervention state waits for limit, waits for resume delay, and shows sent after notification delivery;
 - effective settings stay attached to an existing session;
 - no previous session with tracked foreground starts fresh at the current time.
 
@@ -352,21 +386,21 @@ Known useful command:
 .\gradlew.bat assembleDebug
 ```
 
-This has been passing after the recent Android changes.
-
-`testDebugUnitTest` previously failed due to a local Windows/JDK/PATH test executor issue, not due to Kotlin compilation.
-
-After adding `SessionEngineTest`, `compileDebugUnitTestKotlin` succeeds, but `testDebugUnitTest` is still blocked by the same local Windows/JDK/PATH Gradle Test Executor issue:
+Known useful test command:
 
 ```text
-Could not find or load main class Files\Java\jdk-21\bin...
+.\gradlew.bat testDebugUnitTest
 ```
+
+Both `testDebugUnitTest` and `assembleDebug` passed after the recent cleanup. Do not run Gradle test/build tasks in parallel in this repo; run them sequentially to avoid Kotlin incremental cache issues.
 
 ## Git status note
 
 Recent Android commits include:
 
 ```text
+7f1c35d Address Android IDE cleanup suggestions
+6ded2b1 Modernize Android foreground usage events
 3e7efd0 Persist Android session memory
 7ce958d Document Android current state
 3af0ece Group Android dev info sections

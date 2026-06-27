@@ -7,6 +7,20 @@ data class AlertState(
     val alertedSessionKey: String? = null
 )
 
+data class InterventionState(
+    val notificationStatus: InterventionNotificationStatus = InterventionNotificationStatus.NotNeeded,
+    val notificationLeftMillis: Long? = null,
+    val sessionKey: String? = null
+)
+
+enum class InterventionNotificationStatus {
+    NotNeeded,
+    WaitingLimit,
+    WaitingResumeDelay,
+    ReadyToNotify,
+    Sent
+}
+
 sealed interface ForegroundAppState {
     data object Unknown : ForegroundAppState
     data object PermissionMissing : ForegroundAppState
@@ -47,4 +61,35 @@ fun calculateSessionElapsedMillis(
     currentTimeMillis: Long
 ): Long {
     return foregroundAppState.sessionElapsedMillis
+}
+
+fun interventionStateForSession(session: PersistedSessionState?): InterventionState {
+    if (session == null || session.status != SessionStatus.Active) {
+        return InterventionState()
+    }
+
+    if (session.alertedSessionKey == session.sessionKey) {
+        return InterventionState(
+            notificationStatus = InterventionNotificationStatus.Sent,
+            sessionKey = session.sessionKey
+        )
+    }
+
+    val limitLeftMillis = (session.effectiveSettings.sessionLimitMillis - session.sessionElapsedMillis)
+        .coerceAtLeast(0L)
+    val resumeDelayLeftMillis =
+        (session.effectiveSettings.alertDelayAfterResumeMillis - session.currentActiveElapsedMillis)
+            .coerceAtLeast(0L)
+    val notificationLeftMillis = maxOf(limitLeftMillis, resumeDelayLeftMillis)
+    val status = when {
+        resumeDelayLeftMillis > limitLeftMillis -> InterventionNotificationStatus.WaitingResumeDelay
+        limitLeftMillis > 0L -> InterventionNotificationStatus.WaitingLimit
+        else -> InterventionNotificationStatus.ReadyToNotify
+    }
+
+    return InterventionState(
+        notificationStatus = status,
+        notificationLeftMillis = notificationLeftMillis,
+        sessionKey = session.sessionKey
+    )
 }

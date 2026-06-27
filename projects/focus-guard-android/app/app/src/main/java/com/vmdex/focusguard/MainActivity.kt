@@ -125,6 +125,7 @@ class MainActivity : ComponentActivity() {
         val resetState = watcherStateStore.load().copy(
             foregroundAppState = ForegroundAppState.Unknown,
             alertState = AlertState(),
+            interventionState = InterventionState(),
             sessionResetTimeMillis = System.currentTimeMillis()
         )
         watcherStateStore.save(resetState)

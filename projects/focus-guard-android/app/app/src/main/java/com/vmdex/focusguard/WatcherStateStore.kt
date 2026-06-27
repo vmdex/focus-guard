@@ -14,6 +14,7 @@ class WatcherStateStore(context: Context) {
             lastTickTimeMillis = lastTick.takeIf { it > 0L },
             foregroundAppState = readForegroundAppState(),
             alertState = readAlertState(),
+            interventionState = readInterventionState(),
             effectiveSettings = readEffectiveSettings(),
             sessionResetTimeMillis = preferences
                 .getLong(SessionResetTimeMillisKey, 0L)
@@ -33,6 +34,9 @@ class WatcherStateStore(context: Context) {
             putLong(AlertLastTimeMillisKey, state.alertState.lastAlertTimeMillis ?: 0L)
             putString(AlertLastPackageNameKey, state.alertState.lastAlertPackageName)
             putString(AlertedSessionKeyKey, state.alertState.alertedSessionKey)
+            putString(InterventionNotificationStatusKey, state.interventionState.notificationStatus.name)
+            putLong(InterventionNotificationLeftMillisKey, state.interventionState.notificationLeftMillis ?: 0L)
+            putString(InterventionSessionKeyKey, state.interventionState.sessionKey)
 
             when (val foregroundState = state.foregroundAppState) {
                 ForegroundAppState.PermissionMissing -> {
@@ -111,6 +115,24 @@ class WatcherStateStore(context: Context) {
         )
     }
 
+    private fun readInterventionState(): InterventionState {
+        val notificationLeftMillis = preferences
+            .getLong(InterventionNotificationLeftMillisKey, 0L)
+            .takeIf { it > 0L }
+
+        return InterventionState(
+            notificationStatus = preferences
+                .getString(
+                    InterventionNotificationStatusKey,
+                    InterventionNotificationStatus.NotNeeded.name
+                )
+                ?.let(InterventionNotificationStatus::valueOf)
+                ?: InterventionNotificationStatus.NotNeeded,
+            notificationLeftMillis = notificationLeftMillis,
+            sessionKey = preferences.getString(InterventionSessionKeyKey, null)
+        )
+    }
+
     private fun readEffectiveSettings(): FocusGuardSettings {
         return FocusGuardSettings(
             gracePeriodMillis = preferences
@@ -155,6 +177,10 @@ private const val AlertWasSentKey = "alert_was_sent"
 private const val AlertLastTimeMillisKey = "alert_last_time_millis"
 private const val AlertLastPackageNameKey = "alert_last_package_name"
 private const val AlertedSessionKeyKey = "alerted_session_key"
+
+private const val InterventionNotificationStatusKey = "intervention_notification_status"
+private const val InterventionNotificationLeftMillisKey = "intervention_notification_left_millis"
+private const val InterventionSessionKeyKey = "intervention_session_key"
 
 private const val EffectiveGracePeriodSecondsKey = "effective_grace_period_seconds"
 private const val EffectiveSessionLimitSecondsKey = "effective_session_limit_seconds"

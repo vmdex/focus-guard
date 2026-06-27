@@ -451,6 +451,9 @@ private fun DevInfoCard(
             DevInfoSectionTitle(text = "Alerts")
             AlertRows(alertState)
 
+            DevInfoSectionTitle(text = "Intervention")
+            InterventionRows(watcherState.interventionState)
+
             DevInfoSectionTitle(text = "Actions")
             Button(
                 onClick = onRefreshUsageData,
@@ -499,6 +502,19 @@ private fun AlertRows(alertState: AlertState) {
         label = "Last alert time",
         value = alertState.lastAlertTimeMillis?.let(::formatTimestamp) ?: "-"
     )
+}
+
+@Composable
+private fun InterventionRows(interventionState: InterventionState) {
+    DevInfoRow(
+        label = "Notification status",
+        value = interventionNotificationStatusLabel(interventionState.notificationStatus)
+    )
+    DevInfoRow(
+        label = "Notification left",
+        value = interventionState.notificationLeftMillis?.let(::formatElapsed) ?: "-"
+    )
+    DevInfoRow(label = "Intervention session", value = interventionState.sessionKey ?: "-")
 }
 
 @Composable
@@ -606,6 +622,16 @@ private fun sessionStatusLabel(sessionStatus: SessionStatus): String {
         SessionStatus.Active -> "Active"
         SessionStatus.GracePeriod -> "Grace period"
         SessionStatus.Ended -> "Ended"
+    }
+}
+
+private fun interventionNotificationStatusLabel(status: InterventionNotificationStatus): String {
+    return when (status) {
+        InterventionNotificationStatus.NotNeeded -> "Not needed"
+        InterventionNotificationStatus.WaitingLimit -> "Waiting limit"
+        InterventionNotificationStatus.WaitingResumeDelay -> "Waiting resume delay"
+        InterventionNotificationStatus.ReadyToNotify -> "Ready to notify"
+        InterventionNotificationStatus.Sent -> "Sent"
     }
 }
 

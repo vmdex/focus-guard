@@ -107,6 +107,7 @@ class UsageWatcherService : Service() {
                 lastTickTimeMillis = now,
                 foregroundAppState = ForegroundAppState.PermissionMissing,
                 alertState = previousState.alertState,
+                interventionState = previousState.interventionState,
                 effectiveSettings = effectiveSettings,
                 sessionResetTimeMillis = previousState.sessionResetTimeMillis
             )
@@ -137,12 +138,14 @@ class UsageWatcherService : Service() {
         val alertState = currentAlertState.copy(
             alertedSessionKey = session?.alertedSessionKey ?: currentAlertState.alertedSessionKey
         )
+        val interventionState = interventionStateForSession(session)
 
         return WatcherState(
             isRunning = true,
             lastTickTimeMillis = now,
             foregroundAppState = foregroundAppState,
             alertState = alertState,
+            interventionState = interventionState,
             effectiveSettings = effectiveSettings,
             sessionResetTimeMillis = previousState.sessionResetTimeMillis
         )
@@ -257,13 +260,18 @@ class UsageWatcherService : Service() {
             ForegroundAppState.PermissionMissing -> "Permission missing"
             ForegroundAppState.Unknown -> "FG monitoring"
             is ForegroundAppState.Untracked -> "Not tracking: ${shortPackageName(foregroundState.packageName)}"
-            is ForegroundAppState.Detected -> floatingTrackedDebugText(foregroundState, state.effectiveSettings)
+            is ForegroundAppState.Detected -> floatingTrackedDebugText(
+                foregroundState = foregroundState,
+                settings = state.effectiveSettings,
+                interventionState = state.interventionState
+            )
         }
     }
 
     private fun floatingTrackedDebugText(
         foregroundState: ForegroundAppState.Detected,
-        settings: FocusGuardSettings
+        settings: FocusGuardSettings,
+        interventionState: InterventionState
     ): String {
         val currentForegroundPackageName = foregroundState.lastForegroundPackageName
         if (foregroundState.sessionStatus != SessionStatus.Active ||
@@ -273,20 +281,7 @@ class UsageWatcherService : Service() {
         }
 
         val limitLeftMillis = (settings.sessionLimitMillis - foregroundState.sessionElapsedMillis).coerceAtLeast(0L)
-        val resumeDelayLeftMillis =
-            (settings.alertDelayAfterResumeMillis - foregroundState.currentActiveElapsedMillis).coerceAtLeast(0L)
-        val notificationLeftMillis = maxOf(limitLeftMillis, resumeDelayLeftMillis)
-        val notificationReason = if (resumeDelayLeftMillis > limitLeftMillis) {
-            " (resume delay)"
-        } else {
-            ""
-        }
-
-        val notificationText = if (foregroundState.isAlertSentForSession) {
-            "Notification sent"
-        } else {
-            "Notification left: ${formatElapsed(notificationLeftMillis)}$notificationReason"
-        }
+        val notificationText = floatingNotificationText(interventionState)
 
         return listOf(
             "Tracking: ${shortPackageName(foregroundState.packageName)}",
@@ -294,6 +289,20 @@ class UsageWatcherService : Service() {
             "Limit left: ${formatElapsed(limitLeftMillis)}",
             notificationText
         ).joinToString(separator = "\n")
+    }
+
+    private fun floatingNotificationText(interventionState: InterventionState): String {
+        return when (interventionState.notificationStatus) {
+            InterventionNotificationStatus.Sent -> "Notification sent"
+            InterventionNotificationStatus.WaitingResumeDelay -> {
+                "Notification left: ${formatElapsed(interventionState.notificationLeftMillis ?: 0L)} (resume delay)"
+            }
+            InterventionNotificationStatus.WaitingLimit,
+            InterventionNotificationStatus.ReadyToNotify -> {
+                "Notification left: ${formatElapsed(interventionState.notificationLeftMillis ?: 0L)}"
+            }
+            InterventionNotificationStatus.NotNeeded -> "Notification left: -"
+        }
     }
 
     private fun shortPackageName(packageName: String): String {
