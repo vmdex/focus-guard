@@ -2,6 +2,8 @@ package com.vmdex.focusguard
 
 import android.content.Intent
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,10 +12,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -21,6 +26,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -42,35 +52,60 @@ fun FocusGuardApp(
     effectiveSettings: FocusGuardSettings,
     hasPendingSettings: Boolean,
     watcherState: WatcherState,
+    launchableApps: List<LaunchableApp>,
+    selectedTrackedPackages: Set<String>,
     packageName: String,
     onRefreshUsageData: () -> Unit,
     onOpenOverlaySettings: () -> Unit,
     onResetSession: () -> Unit,
     onStartMonitoring: () -> Unit,
     onStopMonitoring: () -> Unit,
+    onTrackedAppsChanged: (Set<String>) -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit
 ) {
+    var screen by rememberSaveable { mutableStateOf(FocusGuardScreen.Main) }
+
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-        UsageAccessScreen(
-            hasUsageAccess = hasUsageAccess,
-            hasOverlayAccess = hasOverlayAccess,
-            foregroundAppState = foregroundAppState,
-            currentTimeMillis = currentTimeMillis,
-            alertState = alertState,
-            settings = settings,
-            effectiveSettings = effectiveSettings,
-            hasPendingSettings = hasPendingSettings,
-            watcherState = watcherState,
-            packageName = packageName,
-            onRefreshUsageData = onRefreshUsageData,
-            onOpenOverlaySettings = onOpenOverlaySettings,
-            onResetSession = onResetSession,
-            onStartMonitoring = onStartMonitoring,
-            onStopMonitoring = onStopMonitoring,
-            onSettingsChanged = onSettingsChanged,
-            modifier = Modifier.padding(innerPadding)
-        )
+        when (screen) {
+            FocusGuardScreen.Main -> UsageAccessScreen(
+                hasUsageAccess = hasUsageAccess,
+                hasOverlayAccess = hasOverlayAccess,
+                foregroundAppState = foregroundAppState,
+                currentTimeMillis = currentTimeMillis,
+                alertState = alertState,
+                settings = settings,
+                effectiveSettings = effectiveSettings,
+                hasPendingSettings = hasPendingSettings,
+                watcherState = watcherState,
+                selectedTrackedPackages = selectedTrackedPackages,
+                packageName = packageName,
+                onRefreshUsageData = onRefreshUsageData,
+                onOpenOverlaySettings = onOpenOverlaySettings,
+                onResetSession = onResetSession,
+                onStartMonitoring = onStartMonitoring,
+                onStopMonitoring = onStopMonitoring,
+                onChooseApps = { screen = FocusGuardScreen.ChooseApps },
+                onSettingsChanged = onSettingsChanged,
+                modifier = Modifier.padding(innerPadding)
+            )
+
+            FocusGuardScreen.ChooseApps -> ChooseAppsScreen(
+                launchableApps = launchableApps,
+                selectedTrackedPackages = selectedTrackedPackages,
+                onApply = { packageNames ->
+                    onTrackedAppsChanged(packageNames)
+                    screen = FocusGuardScreen.Main
+                },
+                onBack = { screen = FocusGuardScreen.Main },
+                modifier = Modifier.padding(innerPadding)
+            )
+        }
     }
+}
+
+private enum class FocusGuardScreen {
+    Main,
+    ChooseApps
 }
 
 @Composable
@@ -84,12 +119,14 @@ private fun UsageAccessScreen(
     effectiveSettings: FocusGuardSettings,
     hasPendingSettings: Boolean,
     watcherState: WatcherState,
+    selectedTrackedPackages: Set<String>,
     packageName: String,
     onRefreshUsageData: () -> Unit,
     onOpenOverlaySettings: () -> Unit,
     onResetSession: () -> Unit,
     onStartMonitoring: () -> Unit,
     onStopMonitoring: () -> Unit,
+    onChooseApps: () -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -145,6 +182,11 @@ private fun UsageAccessScreen(
                 onStopMonitoring = onStopMonitoring
             )
 
+            TrackedAppsCard(
+                selectedTrackedPackages = selectedTrackedPackages,
+                onChooseApps = onChooseApps
+            )
+
             DevSettingsCard(
                 settings = settings,
                 onSettingsChanged = onSettingsChanged
@@ -159,10 +201,120 @@ private fun UsageAccessScreen(
                 effectiveSettings = effectiveSettings,
                 hasPendingSettings = hasPendingSettings,
                 watcherState = watcherState,
+                selectedTrackedPackages = selectedTrackedPackages,
                 onRefreshUsageData = onRefreshUsageData,
                 onResetSession = onResetSession
             )
         }
+    }
+}
+
+@Composable
+private fun ChooseAppsScreen(
+    launchableApps: List<LaunchableApp>,
+    selectedTrackedPackages: Set<String>,
+    onApply: (Set<String>) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BackHandler(onBack = onBack)
+
+    var searchText by rememberSaveable { mutableStateOf("") }
+    var draftSelectedPackages by remember(selectedTrackedPackages) {
+        mutableStateOf(selectedTrackedPackages)
+    }
+    val hasChanges = draftSelectedPackages != selectedTrackedPackages
+    val visibleApps = visibleAppsForSelection(
+        apps = launchableApps,
+        selectedPackages = draftSelectedPackages,
+        searchText = searchText
+    )
+
+    Surface(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Choose apps",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Button(onClick = { onApply(draftSelectedPackages) }) {
+                    Text(text = if (hasChanges) "✓ Save changes" else "✓")
+                }
+            }
+
+            OutlinedTextField(
+                value = searchText,
+                onValueChange = { searchText = it },
+                label = { Text(text = "Search apps") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Text(
+                text = "${draftSelectedPackages.size} tracking apps",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(
+                    items = visibleApps,
+                    key = { app -> app.packageName }
+                ) { app ->
+                    ChooseAppRow(
+                        app = app,
+                        isSelected = app.packageName in draftSelectedPackages,
+                        onSelectionChanged = { isSelected ->
+                            draftSelectedPackages = if (isSelected) {
+                                draftSelectedPackages + app.packageName
+                            } else {
+                                draftSelectedPackages - app.packageName
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChooseAppRow(
+    app: LaunchableApp,
+    isSelected: Boolean,
+    onSelectionChanged: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onSelectionChanged(!isSelected) }
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Checkbox(
+            checked = isSelected,
+            onCheckedChange = onSelectionChanged
+        )
+        Text(
+            text = app.appName,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
@@ -320,6 +472,38 @@ private fun MonitoringCard(
 }
 
 @Composable
+private fun TrackedAppsCard(
+    selectedTrackedPackages: Set<String>,
+    onChooseApps: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "Tracked apps",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Text(
+                text = "${selectedTrackedPackages.size} tracking apps",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Button(
+                onClick = onChooseApps,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "Choose apps")
+            }
+        }
+    }
+}
+
+@Composable
 private fun DevSettingsCard(
     settings: FocusGuardSettings,
     onSettingsChanged: (FocusGuardSettings) -> Unit
@@ -398,6 +582,7 @@ private fun DevInfoCard(
     effectiveSettings: FocusGuardSettings,
     hasPendingSettings: Boolean,
     watcherState: WatcherState,
+    selectedTrackedPackages: Set<String>,
     onRefreshUsageData: () -> Unit,
     onResetSession: () -> Unit
 ) {
@@ -416,9 +601,9 @@ private fun DevInfoCard(
             DevInfoRow(label = "Package", value = packageName)
             DevInfoRow(label = "Usage access", value = if (hasUsageAccess) "true" else "false")
             DevInfoRow(label = "Own package ignored", value = "true")
-            DevInfoRow(label = "Tracked apps", value = TrackedAppPackages.size.toString())
+            DevInfoRow(label = "Tracked apps", value = selectedTrackedPackages.size.toString())
             Text(
-                text = TrackedAppPackages.joinToString(separator = "\n"),
+                text = selectedTrackedPackages.sorted().joinToString(separator = "\n").ifBlank { "-" },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -649,12 +834,14 @@ private fun UsageAccessScreenPreview() {
             effectiveSettings = FocusGuardSettings(),
             hasPendingSettings = false,
             watcherState = WatcherState(),
+            selectedTrackedPackages = emptySet(),
             packageName = "com.vmdex.focusguard",
             onRefreshUsageData = {},
             onOpenOverlaySettings = {},
             onResetSession = {},
             onStartMonitoring = {},
             onStopMonitoring = {},
+            onChooseApps = {},
             onSettingsChanged = {}
         )
     }

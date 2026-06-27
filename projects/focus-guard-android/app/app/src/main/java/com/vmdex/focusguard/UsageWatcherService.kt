@@ -26,8 +26,8 @@ class UsageWatcherService : Service() {
     private lateinit var stateStore: WatcherStateStore
     private lateinit var sessionStore: SessionStateStore
     private lateinit var settingsStore: FocusGuardSettingsStore
+    private lateinit var trackedAppsStore: TrackedAppsStore
     private lateinit var notifier: FocusGuardNotifier
-    private lateinit var sessionEngine: SessionEngine
     private lateinit var windowManager: WindowManager
     private var effectiveSettings = FocusGuardSettings()
     private var floatingDebugView: TextView? = null
@@ -48,11 +48,8 @@ class UsageWatcherService : Service() {
         stateStore = WatcherStateStore(this)
         sessionStore = SessionStateStore(this)
         settingsStore = FocusGuardSettingsStore(this)
+        trackedAppsStore = TrackedAppsStore(this)
         notifier = FocusGuardNotifier(this)
-        sessionEngine = SessionEngine(
-            trackedAppPackages = TrackedAppPackages,
-            ignoredPackageName = packageName
-        )
         windowManager = getSystemService(WindowManager::class.java)
         val savedState = stateStore.load()
         effectiveSettings = savedState.effectiveSettings
@@ -118,7 +115,7 @@ class UsageWatcherService : Service() {
             context = this,
             sinceTimeMillis = previousSession?.lastUpdatedTimeMillis ?: previousState.sessionResetTimeMillis
         )
-        val engineResult = sessionEngine.buildNextSession(
+        val engineResult = sessionEngine().buildNextSession(
             previousSession = previousSession,
             snapshot = snapshot,
             savedSettings = savedSettings,
@@ -148,6 +145,13 @@ class UsageWatcherService : Service() {
             interventionState = interventionState,
             effectiveSettings = effectiveSettings,
             sessionResetTimeMillis = previousState.sessionResetTimeMillis
+        )
+    }
+
+    private fun sessionEngine(): SessionEngine {
+        return SessionEngine(
+            trackedAppPackages = trackedAppsStore.load(),
+            ignoredPackageName = packageName
         )
     }
 

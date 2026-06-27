@@ -24,9 +24,13 @@ class MainActivity : ComponentActivity() {
     private var settings by mutableStateOf(FocusGuardSettings())
     private var effectiveSettings by mutableStateOf(FocusGuardSettings())
     private var watcherState by mutableStateOf(WatcherState())
+    private var launchableApps by mutableStateOf(emptyList<LaunchableApp>())
+    private var selectedTrackedPackages by mutableStateOf(emptySet<String>())
     private lateinit var settingsStore: FocusGuardSettingsStore
     private lateinit var watcherStateStore: WatcherStateStore
     private lateinit var sessionStateStore: SessionStateStore
+    private lateinit var trackedAppsStore: TrackedAppsStore
+    private lateinit var installedAppProvider: InstalledAppProvider
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,7 +39,11 @@ class MainActivity : ComponentActivity() {
         settingsStore = FocusGuardSettingsStore(this)
         watcherStateStore = WatcherStateStore(this)
         sessionStateStore = SessionStateStore(this)
+        trackedAppsStore = TrackedAppsStore(this)
+        installedAppProvider = InstalledAppProvider(this)
         settings = settingsStore.load()
+        selectedTrackedPackages = trackedAppsStore.load()
+        launchableApps = installedAppProvider.loadLaunchableApps()
         watcherState = watcherStateStore.load()
         effectiveSettings = settings
         requestNotificationPermissionIfNeeded()
@@ -54,12 +62,15 @@ class MainActivity : ComponentActivity() {
                     effectiveSettings = effectiveSettings,
                     hasPendingSettings = settings != effectiveSettings,
                     watcherState = watcherState,
+                    launchableApps = launchableApps,
+                    selectedTrackedPackages = selectedTrackedPackages,
                     packageName = packageName,
                     onRefreshUsageData = ::refreshUsageData,
                     onOpenOverlaySettings = ::openOverlaySettings,
                     onResetSession = ::resetSession,
                     onStartMonitoring = ::startMonitoring,
                     onStopMonitoring = ::stopMonitoring,
+                    onTrackedAppsChanged = ::applyTrackedApps,
                     onSettingsChanged = ::applySettings
                 )
             }
@@ -68,6 +79,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        launchableApps = installedAppProvider.loadLaunchableApps()
         resumeMonitoringServiceIfNeeded()
         refreshUsageData()
     }
@@ -75,6 +87,7 @@ class MainActivity : ComponentActivity() {
     private fun refreshUsageData() {
         currentTimeMillis = System.currentTimeMillis()
         watcherState = watcherStateStore.load()
+        selectedTrackedPackages = trackedAppsStore.load()
         hasUsageAccess = hasUsageAccessPermission(this)
         hasOverlayAccess = hasOverlayPermission(this)
 
@@ -102,6 +115,12 @@ class MainActivity : ComponentActivity() {
         if (!watcherState.isRunning) {
             effectiveSettings = newSettings
         }
+        refreshUsageData()
+    }
+
+    private fun applyTrackedApps(packageNames: Set<String>) {
+        selectedTrackedPackages = packageNames
+        trackedAppsStore.save(packageNames)
         refreshUsageData()
     }
 

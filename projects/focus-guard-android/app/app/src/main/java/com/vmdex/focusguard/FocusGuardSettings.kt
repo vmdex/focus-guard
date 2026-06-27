@@ -12,13 +12,6 @@ const val WatcherNotificationChannelId = "focus_guard_monitoring"
 const val WatcherNotificationId = 2001
 const val WatcherTickMillis = 1000L
 
-val TrackedAppPackages = setOf(
-    "com.google.android.youtube",
-    "com.android.chrome",
-    "com.chrome.beta",
-    "tv.twitch.android.app"
-)
-
 data class FocusGuardSettings(
     val gracePeriodMillis: Long = DefaultGracePeriodMillis,
     val sessionLimitMillis: Long = DefaultSessionLimitMillis,
