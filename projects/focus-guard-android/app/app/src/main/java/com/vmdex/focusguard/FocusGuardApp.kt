@@ -2,7 +2,6 @@ package com.vmdex.focusguard
 
 import android.content.Intent
 import android.provider.Settings
-import android.app.usage.UsageEvents
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -600,10 +599,7 @@ private fun DevInfoRow(label: String, value: String) {
 }
 
 private fun eventTypeLabel(eventType: Int): String {
-    return when (eventType) {
-        UsageEvents.Event.MOVE_TO_FOREGROUND -> "MOVE_TO_FOREGROUND"
-        else -> eventType.toString()
-    }
+    return usageEventTypeLabel(eventType)
 }
 
 private fun sessionStatusLabel(sessionStatus: SessionStatus): String {

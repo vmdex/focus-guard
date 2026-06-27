@@ -19,7 +19,7 @@ fun readForegroundUsageSnapshot(
     while (events.hasNextEvent()) {
         events.getNextEvent(event)
 
-        if (event.eventType != UsageEvents.Event.MOVE_TO_FOREGROUND) {
+        if (!event.eventType.isForegroundStartEventType()) {
             continue
         }
 
@@ -53,3 +53,15 @@ data class ForegroundTransition(
     val eventType: Int,
     val timestampMillis: Long
 )
+
+fun Int.isForegroundStartEventType(): Boolean {
+    return this == UsageEvents.Event.ACTIVITY_RESUMED
+}
+
+fun usageEventTypeLabel(eventType: Int): String {
+    return when (eventType) {
+        UsageEvents.Event.ACTIVITY_RESUMED -> "ACTIVITY_RESUMED"
+        UsageEvents.Event.ACTIVITY_PAUSED -> "ACTIVITY_PAUSED"
+        else -> eventType.toString()
+    }
+}

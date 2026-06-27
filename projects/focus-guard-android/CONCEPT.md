@@ -174,7 +174,8 @@ Modernize foreground usage events:
 
 - `UsageEvents.Event.MOVE_TO_FOREGROUND` is deprecated;
 - it still works, but Android marks it as old API that should not be treated as the long-term path;
-- consider switching foreground detection to newer event types such as `UsageEvents.Event.ACTIVITY_RESUMED` and `UsageEvents.Event.ACTIVITY_PAUSED`;
+- foreground-start detection now uses `UsageEvents.Event.ACTIVITY_RESUMED`;
+- `UsageEvents.Event.ACTIVITY_PAUSED` may become useful later if the session engine needs explicit pause/end events instead of only resumed transitions;
 - this should be tested carefully on the Pixel 7 for Chrome, Focus Guard itself, launcher/untracked apps, and session transitions.
 
 ## First technical path
