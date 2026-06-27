@@ -73,6 +73,26 @@ That means:
 
 This should be fixed before or during the move from Activity-owned prototype monitoring to `UsageWatcherService`-owned monitoring.
 
+## Android process and battery behavior
+
+Future topic to design carefully: Android may stop app processes or restrict background work to save battery.
+
+Focus Guard needs a balanced approach:
+
+- when monitoring is needed, Android should be less likely to stop it unexpectedly;
+- when monitoring is off, the app should not keep work alive;
+- the app should not abuse battery, CPU, notifications, or foreground services;
+- the user should understand when Focus Guard is actively monitoring and why a foreground notification is visible.
+
+Questions to decide later:
+
+- should monitoring always use a foreground service while enabled;
+- should the app ask the user to disable battery optimization for Focus Guard;
+- should monitoring pause or reduce frequency under some conditions;
+- what state should be saved so monitoring can recover after process death;
+- how to avoid duplicate alerts after service/process restart;
+- how to explain these tradeoffs in user-facing settings.
+
 ## First technical path
 
 Start with:
