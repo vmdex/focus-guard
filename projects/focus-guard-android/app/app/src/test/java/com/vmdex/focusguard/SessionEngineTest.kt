@@ -71,6 +71,37 @@ class SessionEngineTest {
         assertEquals(1_000L, session.currentActiveElapsedMillis)
     }
 
+    // Перевіряємо, що повернення з recents відновлює active session навіть без нового foreground transition.
+    @Test
+    fun sessionResumesFromLatestForegroundWhenReturnHasNoTransition() {
+        val graceSession = requireNotNull(
+            engine.buildNextSession(
+                previousSession = null,
+                snapshot = snapshot(
+                    lastForegroundPackageName = LauncherPackage,
+                    transition(ChromePackage, 1_000L),
+                    transition(LauncherPackage, 4_000L)
+                ),
+                savedSettings = settings,
+                currentTimeMillis = 7_000L
+            ).session
+        )
+
+        val result = engine.buildNextSession(
+            previousSession = graceSession,
+            snapshot = snapshot(lastForegroundPackageName = ChromePackage),
+            savedSettings = settings,
+            currentTimeMillis = 9_000L
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(SessionStatus.Active, session.status)
+        assertEquals(graceSession.sessionKey, session.sessionKey)
+        assertEquals(3_000L, session.sessionElapsedMillis)
+        assertEquals(0L, session.currentActiveElapsedMillis)
+        assertEquals(9_000L, session.currentActiveStartedAtMillis)
+    }
+
     // Перевіряємо, що session завершується, якщо користувач не повернувся до tracked app до кінця grace.
     @Test
     fun sessionEndsAfterGraceExpires() {

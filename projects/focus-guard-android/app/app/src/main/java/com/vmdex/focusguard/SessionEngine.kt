@@ -22,6 +22,12 @@ class SessionEngine(
         }
 
         session = advanceSessionClock(session, currentTimeMillis)
+        session = reconcileLatestForegroundApp(
+            session = session,
+            snapshot = snapshot,
+            savedSettings = savedSettings,
+            currentTimeMillis = currentTimeMillis
+        )
 
         if (session == null && snapshot.lastForegroundPackageName?.isTrackedApp() == true) {
             session = startSession(
@@ -40,6 +46,42 @@ class SessionEngine(
             session = session,
             limitAlertRequest = limitAlertRequest(session)
         )
+    }
+
+    private fun reconcileLatestForegroundApp(
+        session: PersistedSessionState?,
+        snapshot: ForegroundUsageSnapshot,
+        savedSettings: FocusGuardSettings,
+        currentTimeMillis: Long
+    ): PersistedSessionState? {
+        val latestForegroundPackageName = snapshot.lastForegroundPackageName
+        if (latestForegroundPackageName == null || !latestForegroundPackageName.isTrackedApp()) {
+            return session
+        }
+
+        if (session == null || session.packageName != latestForegroundPackageName) {
+            return session
+        }
+
+        return when (session.status) {
+            SessionStatus.Active -> session
+            SessionStatus.GracePeriod -> session.copy(
+                status = SessionStatus.Active,
+                currentActiveStartedAtMillis = currentTimeMillis,
+                interruptionStartedAtMillis = null,
+                lastForegroundPackageName = latestForegroundPackageName,
+                lastUpdatedTimeMillis = currentTimeMillis
+            )
+            SessionStatus.Ended -> startSession(
+                transition = ForegroundTransition(
+                    packageName = latestForegroundPackageName,
+                    className = null,
+                    eventType = 0,
+                    timestampMillis = currentTimeMillis
+                ),
+                settings = savedSettings
+            )
+        }
     }
 
     private fun applyForegroundTransition(
