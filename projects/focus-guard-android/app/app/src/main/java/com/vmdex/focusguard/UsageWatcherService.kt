@@ -692,11 +692,19 @@ class UsageWatcherService : Service() {
         size: VideoOverlaySize
     ): FrameLayout {
         return FrameLayout(this).apply {
-            val videoView = TextureView(this@UsageWatcherService).apply {
-                surfaceTextureListener = VisualInterventionTextureListener(
+            val videoView = if (settings.isGreenScreenEnabled) {
+                ChromaKeyVideoView(
+                    context = this@UsageWatcherService,
                     resourceId = resourceId,
                     isSoundEnabled = settings.isSoundEnabled
                 )
+            } else {
+                TextureView(this@UsageWatcherService).apply {
+                    surfaceTextureListener = VisualInterventionTextureListener(
+                        resourceId = resourceId,
+                        isSoundEnabled = settings.isSoundEnabled
+                    )
+                }
             }
             addView(
                 videoView,
