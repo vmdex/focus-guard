@@ -27,3 +27,9 @@ data class FocusGuardSettings(
     val sessionLimitSeconds: Int = (sessionLimitMillis / 1000).toInt()
     val alertDelayAfterResumeSeconds: Int = (alertDelayAfterResumeMillis / 1000).toInt()
 }
+
+fun FocusGuardSettings.hasSessionRuleChanges(other: FocusGuardSettings): Boolean {
+    return gracePeriodMillis != other.gracePeriodMillis ||
+        sessionLimitMillis != other.sessionLimitMillis ||
+        alertDelayAfterResumeMillis != other.alertDelayAfterResumeMillis
+}

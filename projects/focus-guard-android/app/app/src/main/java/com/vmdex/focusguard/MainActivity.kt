@@ -126,12 +126,33 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applySettings(newSettings: FocusGuardSettings) {
+        val previousSettings = settings
         settings = newSettings
         settingsStore.save(newSettings)
-        if (!watcherState.isRunning) {
+
+        if (previousSettings.hasSessionRuleChanges(newSettings)) {
+            clearActiveSessionForSettingsChange(newSettings)
+        } else if (!watcherState.isRunning) {
             effectiveSettings = newSettings
         }
+
         refreshUsageData()
+    }
+
+    private fun clearActiveSessionForSettingsChange(newSettings: FocusGuardSettings) {
+        sessionStateStore.clear()
+        val resetState = watcherStateStore.load().copy(
+            foregroundAppState = ForegroundAppState.Unknown,
+            alertState = AlertState(),
+            interventionState = InterventionState(),
+            effectiveSettings = newSettings,
+            sessionResetTimeMillis = System.currentTimeMillis()
+        )
+        watcherStateStore.save(resetState)
+        watcherState = resetState
+        foregroundAppState = ForegroundAppState.Unknown
+        alertState = AlertState()
+        effectiveSettings = newSettings
     }
 
     private fun applyInterventionSettings(newSettings: InterventionSettings) {
