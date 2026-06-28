@@ -197,9 +197,7 @@ private fun UsageAccessScreen(
 
             FocusSettingsCard(
                 settings = settings,
-                debugSettings = debugSettings,
-                onSettingsChanged = onSettingsChanged,
-                onDebugSettingsChanged = onDebugSettingsChanged
+                onSettingsChanged = onSettingsChanged
             )
 
             InterventionSettingsCard(
@@ -847,9 +845,7 @@ private fun InterventionSettingsCard(
 @Composable
 private fun FocusSettingsCard(
     settings: FocusGuardSettings,
-    debugSettings: DebugSettings,
-    onSettingsChanged: (FocusGuardSettings) -> Unit,
-    onDebugSettingsChanged: (DebugSettings) -> Unit
+    onSettingsChanged: (FocusGuardSettings) -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -869,11 +865,9 @@ private fun FocusSettingsCard(
             ) {
                 Text(text = "Show session timer", style = MaterialTheme.typography.bodyLarge)
                 Switch(
-                    checked = debugSettings.isSessionTimerEnabled,
+                    checked = settings.isSessionTimerEnabled,
                     onCheckedChange = { isEnabled ->
-                        onDebugSettingsChanged(
-                            debugSettings.copy(isSessionTimerEnabled = isEnabled)
-                        )
+                        onSettingsChanged(settings.copy(isSessionTimerEnabled = isEnabled))
                     }
                 )
             }

@@ -2,7 +2,6 @@ package com.vmdex.focusguard
 
 data class DebugSettings(
     val isFloatingDebugWindowEnabled: Boolean = true,
-    val isSessionTimerEnabled: Boolean = false,
     val activeTickMillis: Long = WatcherTickMillis,
     val graceTickMillis: Long = WatcherGraceTickMillis,
     val idleTickMillis: Long = WatcherIdleTickMillis,

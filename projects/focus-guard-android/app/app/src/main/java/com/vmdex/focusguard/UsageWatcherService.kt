@@ -412,7 +412,7 @@ class UsageWatcherService : Service() {
 
     private fun updateSessionTimerWindow(state: WatcherState) {
         val detected = state.foregroundAppState as? ForegroundAppState.Detected
-        if (!debugSettingsStore.load().isSessionTimerEnabled ||
+        if (!settingsStore.load().isSessionTimerEnabled ||
             detected == null ||
             detected.sessionStatus != SessionStatus.Active ||
             detected.lastForegroundPackageName != detected.packageName

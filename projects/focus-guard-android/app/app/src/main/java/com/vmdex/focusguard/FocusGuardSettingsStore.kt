@@ -13,6 +13,10 @@ class FocusGuardSettingsStore(context: Context) {
             alertDelayAfterResumeMillis = readSeconds(
                 AlertDelayAfterResumeSecondsKey,
                 DefaultAlertDelayAfterResumeMillis
+            ),
+            isSessionTimerEnabled = preferences.getBoolean(
+                SessionTimerEnabledKey,
+                false
             )
         )
     }
@@ -22,6 +26,7 @@ class FocusGuardSettingsStore(context: Context) {
             putInt(GracePeriodSecondsKey, settings.gracePeriodSeconds)
             putInt(SessionLimitSecondsKey, settings.sessionLimitSeconds)
             putInt(AlertDelayAfterResumeSecondsKey, settings.alertDelayAfterResumeSeconds)
+            putBoolean(SessionTimerEnabledKey, settings.isSessionTimerEnabled)
         }
     }
 
@@ -37,3 +42,4 @@ private const val SettingsStoreName = "focus_guard_settings"
 private const val GracePeriodSecondsKey = "grace_period_seconds"
 private const val SessionLimitSecondsKey = "session_limit_seconds"
 private const val AlertDelayAfterResumeSecondsKey = "alert_delay_after_resume_seconds"
+private const val SessionTimerEnabledKey = "session_timer_enabled"

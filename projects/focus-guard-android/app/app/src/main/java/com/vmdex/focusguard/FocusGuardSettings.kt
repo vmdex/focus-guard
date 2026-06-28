@@ -20,7 +20,8 @@ const val WatcherScreenLockedTickMillis = 30 * 1000L
 data class FocusGuardSettings(
     val gracePeriodMillis: Long = DefaultGracePeriodMillis,
     val sessionLimitMillis: Long = DefaultSessionLimitMillis,
-    val alertDelayAfterResumeMillis: Long = DefaultAlertDelayAfterResumeMillis
+    val alertDelayAfterResumeMillis: Long = DefaultAlertDelayAfterResumeMillis,
+    val isSessionTimerEnabled: Boolean = false
 ) {
     val gracePeriodSeconds: Int = (gracePeriodMillis / 1000).toInt()
     val sessionLimitSeconds: Int = (sessionLimitMillis / 1000).toInt()

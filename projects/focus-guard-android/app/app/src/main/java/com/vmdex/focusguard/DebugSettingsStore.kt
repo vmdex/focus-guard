@@ -12,10 +12,6 @@ class DebugSettingsStore(context: Context) {
                 FloatingDebugWindowEnabledKey,
                 true
             ),
-            isSessionTimerEnabled = preferences.getBoolean(
-                SessionTimerEnabledKey,
-                false
-            ),
             activeTickMillis = readSeconds(ActiveTickSecondsKey, WatcherTickMillis),
             graceTickMillis = readSeconds(GraceTickSecondsKey, WatcherGraceTickMillis),
             idleTickMillis = readSeconds(IdleTickSecondsKey, WatcherIdleTickMillis),
@@ -29,7 +25,6 @@ class DebugSettingsStore(context: Context) {
     fun save(settings: DebugSettings) {
         preferences.edit {
             putBoolean(FloatingDebugWindowEnabledKey, settings.isFloatingDebugWindowEnabled)
-            putBoolean(SessionTimerEnabledKey, settings.isSessionTimerEnabled)
             putInt(ActiveTickSecondsKey, settings.activeTickSeconds)
             putInt(GraceTickSecondsKey, settings.graceTickSeconds)
             putInt(IdleTickSecondsKey, settings.idleTickSeconds)
@@ -44,7 +39,6 @@ class DebugSettingsStore(context: Context) {
 
 private const val DebugSettingsStoreName = "focus_guard_debug_settings"
 private const val FloatingDebugWindowEnabledKey = "floating_debug_window_enabled"
-private const val SessionTimerEnabledKey = "session_timer_enabled"
 private const val ActiveTickSecondsKey = "active_tick_seconds"
 private const val GraceTickSecondsKey = "grace_tick_seconds"
 private const val IdleTickSecondsKey = "idle_tick_seconds"
