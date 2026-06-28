@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -28,14 +29,17 @@ class UsageWatcherService : Service() {
     private lateinit var settingsStore: FocusGuardSettingsStore
     private lateinit var interventionSettingsStore: InterventionSettingsStore
     private lateinit var debugSettingsStore: DebugSettingsStore
+    private lateinit var overlayWindowPositionStore: OverlayWindowPositionStore
     private lateinit var trackedAppsStore: TrackedAppsStore
     private lateinit var notifier: FocusGuardNotifier
     private lateinit var windowManager: WindowManager
     private var effectiveSettings = FocusGuardSettings()
     private var floatingDebugView: TextView? = null
     private var floatingDebugLayoutParams: WindowManager.LayoutParams? = null
+    private var floatingDebugOrientation: OverlayOrientation? = null
     private var sessionTimerView: TextView? = null
     private var sessionTimerLayoutParams: WindowManager.LayoutParams? = null
+    private var sessionTimerOrientation: OverlayOrientation? = null
     private var interventionPopupView: TextView? = null
     private var interventionPopupLayoutParams: WindowManager.LayoutParams? = null
     private var hideInterventionPopupRunnable: Runnable? = null
@@ -58,6 +62,7 @@ class UsageWatcherService : Service() {
         settingsStore = FocusGuardSettingsStore(this)
         interventionSettingsStore = InterventionSettingsStore(this)
         debugSettingsStore = DebugSettingsStore(this)
+        overlayWindowPositionStore = OverlayWindowPositionStore(this)
         trackedAppsStore = TrackedAppsStore(this)
         notifier = FocusGuardNotifier(this)
         windowManager = getSystemService(WindowManager::class.java)
@@ -281,10 +286,16 @@ class UsageWatcherService : Service() {
 
         val view = floatingDebugView ?: createFloatingDebugView().also { floatingDebugView = it }
         view.text = floatingDebugText(state)
+        val orientation = currentOverlayOrientation()
+        if (view.parent != null && floatingDebugOrientation != orientation) {
+            windowManager.removeView(view)
+            floatingDebugLayoutParams = null
+        }
 
         if (view.parent == null) {
             val params = floatingDebugLayoutParams ?: createFloatingDebugLayoutParams()
                 .also { floatingDebugLayoutParams = it }
+            floatingDebugOrientation = orientation
             windowManager.addView(view, params)
         }
     }
@@ -309,10 +320,16 @@ class UsageWatcherService : Service() {
         val timerText = formatSessionTimer(detected.sessionElapsedMillis)
         view.text = timerText
         view.textSize = if (timerText.length > 5) 12f else 14f
+        val orientation = currentOverlayOrientation()
+        if (view.parent != null && sessionTimerOrientation != orientation) {
+            windowManager.removeView(view)
+            sessionTimerLayoutParams = null
+        }
 
         if (view.parent == null) {
             val params = sessionTimerLayoutParams ?: createSessionTimerLayoutParams()
                 .also { sessionTimerLayoutParams = it }
+            sessionTimerOrientation = orientation
             windowManager.addView(view, params)
         }
     }
@@ -363,6 +380,10 @@ class UsageWatcherService : Service() {
     }
 
     private fun createFloatingDebugLayoutParams(): WindowManager.LayoutParams {
+        val position = overlayWindowPositionStore.load(
+            kind = OverlayWindowKind.FloatingDebug,
+            orientation = currentOverlayOrientation()
+        )
         return WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -371,13 +392,17 @@ class UsageWatcherService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 32
-            y = 160
+            x = position?.x ?: 32
+            y = position?.y ?: 160
         }
     }
 
     private fun createSessionTimerLayoutParams(): WindowManager.LayoutParams {
         val size = sessionTimerSizePx()
+        val position = overlayWindowPositionStore.load(
+            kind = OverlayWindowKind.SessionTimer,
+            orientation = currentOverlayOrientation()
+        )
         return WindowManager.LayoutParams(
             size,
             size,
@@ -386,8 +411,8 @@ class UsageWatcherService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 32
-            y = 320
+            x = position?.x ?: 32
+            y = position?.y ?: 320
         }
     }
 
@@ -415,6 +440,7 @@ class UsageWatcherService : Service() {
         }
         floatingDebugView = null
         floatingDebugLayoutParams = null
+        floatingDebugOrientation = null
     }
 
     private fun removeSessionTimerWindow() {
@@ -424,6 +450,7 @@ class UsageWatcherService : Service() {
         }
         sessionTimerView = null
         sessionTimerLayoutParams = null
+        sessionTimerOrientation = null
     }
 
     private fun removeInterventionPopup() {
@@ -505,6 +532,10 @@ class UsageWatcherService : Service() {
                 }
 
                 MotionEvent.ACTION_UP -> {
+                    saveOverlayWindowPosition(
+                        kind = OverlayWindowKind.FloatingDebug,
+                        params = params
+                    )
                     view.performClick()
                     true
                 }
@@ -540,6 +571,10 @@ class UsageWatcherService : Service() {
                 }
 
                 MotionEvent.ACTION_UP -> {
+                    saveOverlayWindowPosition(
+                        kind = OverlayWindowKind.SessionTimer,
+                        params = params
+                    )
                     view.performClick()
                     true
                 }
@@ -555,6 +590,25 @@ class UsageWatcherService : Service() {
 
     private fun timerStrokeWidthPx(): Int {
         return (3 * resources.displayMetrics.density).toInt().coerceAtLeast(1)
+    }
+
+    private fun saveOverlayWindowPosition(
+        kind: OverlayWindowKind,
+        params: WindowManager.LayoutParams
+    ) {
+        overlayWindowPositionStore.save(
+            kind = kind,
+            orientation = currentOverlayOrientation(),
+            position = OverlayWindowPosition(x = params.x, y = params.y)
+        )
+    }
+
+    private fun currentOverlayOrientation(): OverlayOrientation {
+        return if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            OverlayOrientation.Landscape
+        } else {
+            OverlayOrientation.Portrait
+        }
     }
 
     companion object {
