@@ -533,11 +533,11 @@ class SessionEngineTest {
         val session = requireNotNull(result.session)
         assertEquals(SessionStatus.PausedByScreenLock, session.status)
         assertEquals(5_000L, session.sessionElapsedMillis)
-        assertNull(session.interruptionStartedAtMillis)
+        assertEquals(6_000L, session.interruptionStartedAtMillis)
         assertNull(result.limitAlertRequest)
     }
 
-    // Перевіряємо, що lock screen під час grace заморожує session і не дає grace завершитись.
+    // Перевіряємо, що lock screen під час grace заморожує session і зберігає початок interruption.
     @Test
     fun screenLockPausesGraceSessionWithoutExpiringGrace() {
         val graceSession = activeSession(
@@ -562,10 +562,10 @@ class SessionEngineTest {
         val session = requireNotNull(result.session)
         assertEquals(SessionStatus.PausedByScreenLock, session.status)
         assertEquals(5_000L, session.sessionElapsedMillis)
-        assertNull(session.interruptionStartedAtMillis)
+        assertEquals(6_000L, session.interruptionStartedAtMillis)
     }
 
-    // Перевіряємо, що після unlock у tracked app session продовжується без рахування часу lock screen.
+    // Перевіряємо, що після короткого lock у tracked app session продовжується без рахування часу lock screen.
     @Test
     fun unlockToTrackedAppResumesPausedSession() {
         val pausedSession = activeSession(
@@ -574,24 +574,25 @@ class SessionEngineTest {
             lastUpdatedTimeMillis = 6_000L
         ).copy(
             status = SessionStatus.PausedByScreenLock,
-            currentActiveStartedAtMillis = null
+            currentActiveStartedAtMillis = null,
+            interruptionStartedAtMillis = 6_000L
         )
 
         val result = engine.buildNextSession(
             previousSession = pausedSession,
             snapshot = snapshot(lastForegroundPackageName = ChromePackage),
             savedSettings = settings,
-            currentTimeMillis = 66_000L
+            currentTimeMillis = 12_000L
         )
 
         val session = requireNotNull(result.session)
         assertEquals(SessionStatus.Active, session.status)
         assertEquals(5_000L, session.sessionElapsedMillis)
         assertEquals(0L, session.currentActiveElapsedMillis)
-        assertEquals(66_000L, session.currentActiveStartedAtMillis)
+        assertEquals(12_000L, session.currentActiveStartedAtMillis)
     }
 
-    // Перевіряємо, що після unlock у non-tracked app paused session переходить у grace з нового моменту.
+    // Перевіряємо, що після короткого lock у non-tracked app paused session повертається в grace з початковим interruption.
     @Test
     fun unlockToUntrackedAppStartsGraceAfterPausedSession() {
         val pausedSession = activeSession(
@@ -600,20 +601,75 @@ class SessionEngineTest {
             lastUpdatedTimeMillis = 6_000L
         ).copy(
             status = SessionStatus.PausedByScreenLock,
-            currentActiveStartedAtMillis = null
+            currentActiveStartedAtMillis = null,
+            interruptionStartedAtMillis = 6_000L
         )
 
         val result = engine.buildNextSession(
             previousSession = pausedSession,
             snapshot = snapshot(lastForegroundPackageName = LauncherPackage),
             savedSettings = settings,
-            currentTimeMillis = 66_000L
+            currentTimeMillis = 12_000L
         )
 
         val session = requireNotNull(result.session)
         assertEquals(SessionStatus.GracePeriod, session.status)
         assertEquals(5_000L, session.sessionElapsedMillis)
-        assertEquals(66_000L, session.interruptionStartedAtMillis)
+        assertEquals(6_000L, session.interruptionStartedAtMillis)
+    }
+
+    // Перевіряємо, що після довгого lock повернення у tracked app починає нову session.
+    @Test
+    fun unlockToTrackedAppAfterGraceAndLockExpiredStartsNewSession() {
+        val pausedSession = activeSession(
+            sessionElapsedMillis = 5_000L,
+            currentActiveStartedAtMillis = 1_000L,
+            lastUpdatedTimeMillis = 6_000L
+        ).copy(
+            status = SessionStatus.PausedByScreenLock,
+            currentActiveStartedAtMillis = null,
+            interruptionStartedAtMillis = 6_000L
+        )
+
+        val result = engine.buildNextSession(
+            previousSession = pausedSession,
+            snapshot = snapshot(lastForegroundPackageName = ChromePackage),
+            savedSettings = settings,
+            currentTimeMillis = 17_000L
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(SessionStatus.Active, session.status)
+        assertEquals(17_000L, session.sessionStartedAtMillis)
+        assertEquals("tracked:17000", session.sessionKey)
+        assertEquals(0L, session.sessionElapsedMillis)
+        assertNull(session.interruptionStartedAtMillis)
+    }
+
+    // Перевіряємо, що якщо grace+lock перевищили grace period і user повернувся не в tracked app, стара session завершується.
+    @Test
+    fun unlockToUntrackedAppAfterGraceAndLockExpiredEndsSession() {
+        val pausedSession = activeSession(
+            sessionElapsedMillis = 5_000L,
+            currentActiveStartedAtMillis = 1_000L,
+            lastUpdatedTimeMillis = 6_000L
+        ).copy(
+            status = SessionStatus.PausedByScreenLock,
+            currentActiveStartedAtMillis = null,
+            interruptionStartedAtMillis = 6_000L
+        )
+
+        val result = engine.buildNextSession(
+            previousSession = pausedSession,
+            snapshot = snapshot(lastForegroundPackageName = LauncherPackage),
+            savedSettings = settings,
+            currentTimeMillis = 17_000L
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(SessionStatus.Ended, session.status)
+        assertEquals(5_000L, session.sessionElapsedMillis)
+        assertNull(session.interruptionStartedAtMillis)
     }
 
     private fun snapshot(

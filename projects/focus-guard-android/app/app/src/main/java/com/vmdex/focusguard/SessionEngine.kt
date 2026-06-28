@@ -73,10 +73,15 @@ class SessionEngine(
 
         if (!latestForegroundPackageName.isTrackedApp()) {
             return if (session.status == SessionStatus.PausedByScreenLock) {
+                val hasInterruptionExpired = session.hasInterruptionExpired(currentTimeMillis)
                 session.copy(
-                    status = SessionStatus.GracePeriod,
+                    status = if (hasInterruptionExpired) SessionStatus.Ended else SessionStatus.GracePeriod,
                     currentActiveStartedAtMillis = null,
-                    interruptionStartedAtMillis = currentTimeMillis,
+                    interruptionStartedAtMillis = if (hasInterruptionExpired) {
+                        null
+                    } else {
+                        session.interruptionStartedAtMillis ?: currentTimeMillis
+                    },
                     lastForegroundPackageName = latestForegroundPackageName,
                     lastUpdatedTimeMillis = currentTimeMillis
                 )
@@ -101,12 +106,30 @@ class SessionEngine(
             )
             SessionStatus.PausedByScreenLock -> session.copy(
                 packageName = latestForegroundPackageName,
-                status = SessionStatus.Active,
+                status = if (session.hasInterruptionExpired(currentTimeMillis)) {
+                    SessionStatus.Ended
+                } else {
+                    SessionStatus.Active
+                },
                 currentActiveStartedAtMillis = currentTimeMillis,
                 interruptionStartedAtMillis = null,
                 lastForegroundPackageName = latestForegroundPackageName,
                 lastUpdatedTimeMillis = currentTimeMillis
-            )
+            ).let { resumedSession ->
+                if (resumedSession.status == SessionStatus.Ended) {
+                    startSession(
+                        transition = ForegroundTransition(
+                            packageName = latestForegroundPackageName,
+                            className = null,
+                            eventType = 0,
+                            timestampMillis = currentTimeMillis
+                        ),
+                        settings = savedSettings
+                    )
+                } else {
+                    resumedSession
+                }
+            }
             SessionStatus.Ended -> startSession(
                 transition = ForegroundTransition(
                     packageName = latestForegroundPackageName,
@@ -132,16 +155,20 @@ class SessionEngine(
             }
 
             if (session.status == SessionStatus.PausedByScreenLock) {
-                return session.copy(
-                    packageName = transition.packageName,
-                    status = SessionStatus.Active,
-                    currentActiveStartedAtMillis = transition.timestampMillis,
-                    interruptionStartedAtMillis = null,
-                    className = transition.className,
-                    eventType = transition.eventType,
-                    lastForegroundPackageName = transition.packageName,
-                    lastUpdatedTimeMillis = transition.timestampMillis
-                )
+                return if (session.hasInterruptionExpired(transition.timestampMillis)) {
+                    startSession(transition, savedSettings)
+                } else {
+                    session.copy(
+                        packageName = transition.packageName,
+                        status = SessionStatus.Active,
+                        currentActiveStartedAtMillis = transition.timestampMillis,
+                        interruptionStartedAtMillis = null,
+                        className = transition.className,
+                        eventType = transition.eventType,
+                        lastForegroundPackageName = transition.packageName,
+                        lastUpdatedTimeMillis = transition.timestampMillis
+                    )
+                }
             }
 
             return session.copy(
@@ -170,9 +197,17 @@ class SessionEngine(
             )
 
             SessionStatus.PausedByScreenLock -> session.copy(
-                status = SessionStatus.GracePeriod,
+                status = if (session.hasInterruptionExpired(transition.timestampMillis)) {
+                    SessionStatus.Ended
+                } else {
+                    SessionStatus.GracePeriod
+                },
                 currentActiveStartedAtMillis = null,
-                interruptionStartedAtMillis = transition.timestampMillis,
+                interruptionStartedAtMillis = if (session.hasInterruptionExpired(transition.timestampMillis)) {
+                    null
+                } else {
+                    session.interruptionStartedAtMillis ?: transition.timestampMillis
+                },
                 lastForegroundPackageName = transition.packageName,
                 lastUpdatedTimeMillis = transition.timestampMillis
             )
@@ -243,7 +278,7 @@ class SessionEngine(
         return sessionToPause.copy(
             status = SessionStatus.PausedByScreenLock,
             currentActiveStartedAtMillis = null,
-            interruptionStartedAtMillis = null,
+            interruptionStartedAtMillis = sessionToPause.interruptionStartedAtMillis ?: currentTimeMillis,
             lastUpdatedTimeMillis = currentTimeMillis
         )
     }
@@ -304,6 +339,11 @@ class SessionEngine(
             lastForegroundPackageName = lastForegroundPackageName ?: this.lastForegroundPackageName,
             lastUpdatedTimeMillis = currentTimeMillis
         )
+    }
+
+    private fun PersistedSessionState.hasInterruptionExpired(currentTimeMillis: Long): Boolean {
+        val interruptionStartedAt = interruptionStartedAtMillis ?: return false
+        return currentTimeMillis - interruptionStartedAt > effectiveSettings.gracePeriodMillis
     }
 
     private fun Map<String, Long>.plusElapsed(
