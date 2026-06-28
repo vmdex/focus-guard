@@ -57,6 +57,7 @@ class UsageWatcherService : Service() {
             updateMonitoringNotification(state)
             updateFloatingDebugWindow(state)
             updateSessionTimerWindow(state)
+            scheduleNextTick(state)
         }
     }
 
@@ -67,7 +68,7 @@ class UsageWatcherService : Service() {
             updateMonitoringNotification(state)
             updateFloatingDebugWindow(state)
             updateSessionTimerWindow(state)
-            handler.postDelayed(this, WatcherTickMillis)
+            scheduleNextTick(state)
         }
     }
 
@@ -116,7 +117,7 @@ class UsageWatcherService : Service() {
         updateFloatingDebugWindow(state)
         updateSessionTimerWindow(state)
         handler.removeCallbacks(tickRunnable)
-        handler.postDelayed(tickRunnable, WatcherTickMillis)
+        scheduleNextTick(state)
     }
 
     private fun stopMonitoring(markNotRunning: Boolean) {
@@ -131,6 +132,30 @@ class UsageWatcherService : Service() {
             stateStore.save(WatcherState(isRunning = false, lastTickTimeMillis = null))
         }
         stopForeground(STOP_FOREGROUND_REMOVE)
+    }
+
+    private fun scheduleNextTick(state: WatcherState) {
+        handler.removeCallbacks(tickRunnable)
+        handler.postDelayed(tickRunnable, tickDelayMillis(state))
+    }
+
+    private fun tickDelayMillis(state: WatcherState): Long {
+        if (state.deviceInteractionState.isScreenLocked) {
+            return WatcherScreenLockedTickMillis
+        }
+
+        return when (val foregroundAppState = state.foregroundAppState) {
+            is ForegroundAppState.Detected -> when (foregroundAppState.sessionStatus) {
+                SessionStatus.Active -> WatcherTickMillis
+                SessionStatus.GracePeriod -> WatcherGraceTickMillis
+                SessionStatus.PausedByScreenLock -> WatcherScreenLockedTickMillis
+                SessionStatus.Ended -> WatcherIdleTickMillis
+            }
+
+            ForegroundAppState.PermissionMissing,
+            ForegroundAppState.Unknown,
+            is ForegroundAppState.Untracked -> WatcherIdleTickMillis
+        }
     }
 
     private fun buildNextWatcherState(): WatcherState {
@@ -293,8 +318,10 @@ class UsageWatcherService : Service() {
                 lastAlertPackageName = limitAlertRequest.packageName,
                 alertedSessionKey = limitAlertRequest.sessionKey
             )
+            val alertedSession = session.copy(alertedSessionKey = limitAlertRequest.sessionKey)
+            sessionStore.save(alertedSession)
             stateStore.save(stateStore.load().copy(alertState = alertState))
-            session.copy(alertedSessionKey = limitAlertRequest.sessionKey)
+            alertedSession
         } else {
             session
         }

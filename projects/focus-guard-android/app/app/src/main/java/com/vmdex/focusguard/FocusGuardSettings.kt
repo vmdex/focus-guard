@@ -13,6 +13,9 @@ const val NotificationPermissionRequestCode = 2001
 const val WatcherNotificationChannelId = "focus_guard_monitoring"
 const val WatcherNotificationId = 2001
 const val WatcherTickMillis = 1000L
+const val WatcherGraceTickMillis = 3000L
+const val WatcherIdleTickMillis = 5000L
+const val WatcherScreenLockedTickMillis = 30 * 1000L
 
 data class FocusGuardSettings(
     val gracePeriodMillis: Long = DefaultGracePeriodMillis,
