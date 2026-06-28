@@ -48,6 +48,9 @@ InstalledAppProvider.kt
 TrackedAppsStore.kt
 DebugSettings.kt
 DebugSettingsStore.kt
+InterventionSettings.kt
+InterventionSettingsStore.kt
+OverlayWindowPositionStore.kt
 ```
 
 ## Current architecture
@@ -71,7 +74,8 @@ Monitoring is owned by `UsageWatcherService`, not by `MainActivity`.
 - saves a `WatcherState` snapshot;
 - updates the foreground service notification;
 - updates the floating debug overlay;
-- sends limit-exceeded notifications.
+- updates the session timer overlay;
+- sends configured limit-exceeded interventions.
 
 `SessionStateStore` stores the logical session memory.
 
@@ -84,6 +88,8 @@ Foreground-start detection uses:
 - `UsageEvents.Event.ACTIVITY_RESUMED` on Android 10+;
 - `UsageEvents.Event.MOVE_TO_FOREGROUND` only as a legacy fallback on Android 8/9.
 
+The current development target device is Android 16 on Pixel 7.
+
 `SessionEngine` owns the pure session rules. It has no Android service, notification, store, or overlay dependency.
 
 `UsageWatcherService` now acts mostly as wiring:
@@ -95,7 +101,8 @@ Foreground-start detection uses:
 - persists the returned session;
 - sends Android notifications when the engine returns a limit-alert request;
 - derives `InterventionState` for current notification/debug display;
-- updates the foreground notification and floating overlay.
+- updates the foreground notification and overlays;
+- listens for screen on/off/user-present broadcasts while monitoring is running.
 
 ## Monitoring on/off semantics
 
@@ -138,6 +145,7 @@ packageName
 sessionKey
 sessionStartedAtMillis
 sessionElapsedMillis
+appElapsedMillis
 currentActiveStartedAtMillis
 interruptionStartedAtMillis
 status
@@ -146,6 +154,17 @@ alertedSessionKey
 lastUpdatedTimeMillis
 lastForegroundPackageName
 ```
+
+Current session statuses:
+
+```text
+Active
+PausedByScreenLock
+GracePeriod
+Ended
+```
+
+The session is now one logical session across all selected tracked apps. `sessionElapsedMillis` is total tracked-app time inside the session, and `appElapsedMillis` stores per-app time for future statistics/history.
 
 ## Session timing rules
 
@@ -170,11 +189,20 @@ During `GracePeriod`, the session is still alive, but `sessionElapsedMillis` is 
 - returning before grace expires continues the same session;
 - not returning before grace expires ends the session.
 
+Screen lock behavior:
+
+- when the screen turns off or the keyguard is locked, active/grace sessions move to `PausedByScreenLock`;
+- `sessionElapsedMillis` does not grow while locked;
+- grace does not expire while locked;
+- interventions do not fire while locked;
+- after unlock, if the latest foreground app is tracked, the session resumes as `Active`;
+- after unlock, if the latest foreground app is not tracked, the session moves to `GracePeriod`.
+
 Recent recents/foreground behavior:
 
 - if the session is in `GracePeriod` and the latest foreground snapshot directly reports the same tracked app again, the session resumes as `Active`;
 - the app does not use the aggressive fallback “launcher went to background, so previous tracked app must be active” because that caused false `Active` state when returning to Focus Guard itself;
-- known remaining edge case: Android may fail to report a fresh foreground event after some recents flows, so `Chrome -> recents -> Chrome` and `Focus Guard -> recents -> Focus Guard` still need more investigation.
+- raw usage-event debug output helped fix the observed Android 16 recents issue where returning from recents could leave the detected app stuck on `nexuslauncher`.
 
 ## Alert rules
 
@@ -211,6 +239,15 @@ sessionKey
 ```
 
 This is the first small split between alert history and intervention status. It prepares the code for future repeated notifications, floating overlays, fullscreen interventions, and other intervention types without a large refactor yet.
+
+`InterventionSettingsStore` persists user-configurable intervention channels and messages.
+
+Current intervention channels:
+
+- Android heads-up notification;
+- Custom overlay popup.
+
+The UI exposes an `Intervention settings` card under `Focus settings`. It shows enabled channels or `No intervention channel enabled.` and opens a configure screen with an Apply/check action. If there are unsaved changes, the top action shows `Apply`.
 
 ## Debug overlay
 
@@ -254,6 +291,12 @@ After the notification was already delivered for the current session:
 Notification sent
 ```
 
+When the session is paused because the screen is locked:
+
+```text
+Paused: chrome
+```
+
 The overlay is draggable.
 
 The debug overlay is controlled by:
@@ -268,6 +311,8 @@ The label in the UI is currently:
 Float window
 ```
 
+Debug overlay position is persisted separately for portrait and landscape.
+
 ## Session timer overlay
 
 The app also has an optional user-facing session timer overlay.
@@ -280,6 +325,8 @@ It is shown only when:
 - overlay permission is granted.
 
 The timer is a draggable circular overlay.
+
+Timer overlay position is persisted separately for portrait and landscape.
 
 Time format:
 
@@ -298,10 +345,22 @@ Debug settings -> Show session timer
 
 The current UI is a developer-friendly Compose prototype.
 
+## App icon assets
+
+The first icon version is stored at:
+
+```text
+assets/icon/v1/focus-guard-icon-v1.png
+assets/icon/v1/prompt.md
+```
+
+Android launcher icons were generated from this image for density mipmaps and adaptive icon XML. Modern Android uses the `mipmap-anydpi` adaptive icon entries.
+
 Main visible cards:
 
 - Usage Access;
 - Focus settings;
+- Intervention settings;
 - Tracked apps;
 - Monitoring;
 - Dev settings;
@@ -334,10 +393,22 @@ Dev info is grouped into sections:
 - App;
 - Settings;
 - Foreground;
+- Device;
+- Usage events;
 - Session;
 - Alerts;
 - Intervention;
 - Actions.
+
+Device debug fields:
+
+```text
+Interactive
+Keyguard locked
+Screen locked
+Last screen event
+Last screen event time
+```
 
 Dev actions:
 
@@ -386,6 +457,7 @@ The app should stay conservative with battery and CPU.
 Current direction:
 
 - monitoring off should do no polling at all;
+- screen locked sessions should be paused instead of consuming active-session work;
 - normal monitoring should use delta-based `UsageEvents` reads after the last processed timestamp;
 - the larger lookup window should be only a fallback for cold start, missing state, or recovery;
 - tick frequency does not have to stay at 1 second forever;
@@ -399,16 +471,17 @@ Current direction:
 
 Recommended next technical step:
 
-- continue investigating recents/foreground edge cases on Pixel 7, especially where Android does not report a fresh foreground event after returning from recents;
-- decide whether the timer overlay should use a different foreground source or a more explicit “currently visible tracked app” signal.
+- Process Restart Resilience audit: verify persisted session, intervention state, overlays, and no duplicate notifications after process/service restart;
+- Boot Resume Monitoring: if monitoring was enabled before phone reboot, resume monitoring after boot as much as Android 16 permits;
+- Battery-Friendly Polling: reduce tick/poll/update work based on active/grace/paused/untracked states.
 
 Other planned work:
 
 - statistics/history for tracked apps;
-- stronger process-restart behavior;
 - battery optimization strategy;
 - better foreground detection edge-case testing;
-- polished setup flow.
+- polished setup flow;
+- tracked apps configurable polish can continue later as part of UI work.
 
 ## Testing notes
 
@@ -432,9 +505,13 @@ The tests simulate foreground transitions and timestamps directly. Covered scena
 - an already-alerted session does not repeat alert after leaving and returning during grace;
 - sessions stay stable across interruption/grace return and do not count untracked time;
 - effective settings stay attached to an existing session;
-- no previous session with tracked foreground starts fresh at the current time.
+- no previous session with tracked foreground starts fresh at the current time;
 - configurable tracked app selection ordering/search behavior;
-- session timer format uses `mm:ss` before one hour and `hh:mm:ss` after one hour.
+- session timer format uses `mm:ss` before one hour and `hh:mm:ss` after one hour;
+- screen lock pauses active sessions without starting grace;
+- screen lock during grace freezes the session and does not let grace expire;
+- unlock to tracked app resumes the paused session without counting locked time;
+- unlock to untracked app starts grace from the unlock moment.
 
 Useful manual test settings:
 
@@ -450,6 +527,9 @@ Useful scenarios:
 - leave tracked app before limit -> no notification during grace;
 - return to tracked app after limit -> notification waits for resume delay;
 - notification should not repeat for the same session;
+- lock screen while in tracked app -> session status becomes `Paused by screen lock`, elapsed does not grow;
+- unlock back into tracked app -> same session resumes as `Active`;
+- unlock into non-tracked app -> same session moves to `Grace period`;
 - Stop monitoring removes overlay and stops usage refresh;
 - Android Studio re-run should restore monitoring and overlay if monitoring was on.
 
@@ -469,11 +549,26 @@ Known useful test command:
 
 Both `testDebugUnitTest` and `assembleDebug` passed after the recent cleanup. Do not run Gradle test/build tasks in parallel in this repo; run them sequentially to avoid Kotlin incremental cache issues.
 
+Latest verified commands:
+
+```text
+.\gradlew.bat testDebugUnitTest
+.\gradlew.bat assembleDebug
+.\gradlew.bat installDebug
+```
+
 ## Git status note
 
 Recent Android commits include:
 
 ```text
+17fdfdf Pause sessions while screen is locked
+59aecf1 Add Focus Guard launcher icon
+04df9ad Persist overlay window positions
+1bdd7ae Add heads-up intervention notifications
+3829cd7 Configure intervention channels
+4e55ac2 Track one session across apps
+f439977 Resolve Android foreground from activity lifecycle
 238786c Resume session from latest tracked foreground
 48d7a49 Add session timer overlay
 c99de42 Add floating debug window setting
