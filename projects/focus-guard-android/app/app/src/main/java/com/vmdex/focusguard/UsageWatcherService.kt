@@ -14,6 +14,7 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -23,7 +24,9 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
 import android.widget.TextView
+import android.widget.VideoView
 import androidx.core.app.NotificationCompat
 
 class UsageWatcherService : Service() {
@@ -47,6 +50,9 @@ class UsageWatcherService : Service() {
     private var interventionPopupView: TextView? = null
     private var interventionPopupLayoutParams: WindowManager.LayoutParams? = null
     private var hideInterventionPopupRunnable: Runnable? = null
+    private var visualInterventionView: View? = null
+    private var visualInterventionLayoutParams: WindowManager.LayoutParams? = null
+    private var hideVisualInterventionRunnable: Runnable? = null
     private var isScreenEventReceiverRegistered = false
     private var serviceRestoreState = ServiceRestoreState()
 
@@ -124,9 +130,11 @@ class UsageWatcherService : Service() {
         handler.removeCallbacks(tickRunnable)
         unregisterScreenEventReceiver()
         hideInterventionPopupRunnable?.let(handler::removeCallbacks)
+        hideVisualInterventionRunnable?.let(handler::removeCallbacks)
         removeFloatingDebugWindow()
         removeSessionTimerWindow()
         removeInterventionPopup()
+        removeVisualIntervention()
         if (markNotRunning) {
             sessionStore.clear()
             stateStore.save(WatcherState(isRunning = false, lastTickTimeMillis = null))
@@ -312,6 +320,10 @@ class UsageWatcherService : Service() {
             ) || wasDelivered
         }
 
+        if (interventionSettings.isVisualInterventionEnabled) {
+            wasDelivered = showVisualIntervention(interventionSettings) || wasDelivered
+        }
+
         return if (wasDelivered) {
             val alertState = AlertState(
                 wasSent = true,
@@ -345,6 +357,29 @@ class UsageWatcherService : Service() {
         hideInterventionPopupRunnable?.let(handler::removeCallbacks)
         hideInterventionPopupRunnable = Runnable {
             removeInterventionPopup()
+        }.also { runnable ->
+            handler.postDelayed(runnable, InterventionPopupDurationMillis)
+        }
+
+        return true
+    }
+
+    private fun showVisualIntervention(settings: InterventionSettings): Boolean {
+        if (!hasOverlayPermission(this)) {
+            return false
+        }
+
+        removeVisualIntervention()
+
+        val container = createVisualInterventionView(settings)
+        val params = createVisualInterventionLayoutParams(settings)
+        visualInterventionView = container
+        visualInterventionLayoutParams = params
+        windowManager.addView(container, params)
+
+        hideVisualInterventionRunnable?.let(handler::removeCallbacks)
+        hideVisualInterventionRunnable = Runnable {
+            removeVisualIntervention()
         }.also { runnable ->
             handler.postDelayed(runnable, InterventionPopupDurationMillis)
         }
@@ -489,6 +524,72 @@ class UsageWatcherService : Service() {
         }
     }
 
+    private fun createVisualInterventionView(settings: InterventionSettings): FrameLayout {
+        val frameThicknessPx = if (settings.isVisualInterventionFrameEnabled) {
+            dpToPx(settings.visualInterventionFrameThicknessDp)
+        } else {
+            0
+        }
+        val videoSizePx = visualInterventionVideoSizePx(settings)
+        val containerSizePx = videoSizePx + frameThicknessPx * 2
+
+        val container = FrameLayout(this).apply {
+            setPadding(frameThicknessPx, frameThicknessPx, frameThicknessPx, frameThicknessPx)
+            if (settings.isVisualInterventionFrameEnabled) {
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    setColor(Color.WHITE)
+                }
+            }
+            clipToPadding = false
+        }
+
+        val videoView = VideoView(this).apply {
+            setVideoURI(
+                Uri.parse("android.resource://$packageName/${R.raw.visual_intervention_happi_happi_happi}")
+            )
+            setOnPreparedListener { mediaPlayer ->
+                mediaPlayer.isLooping = true
+                val volume = if (settings.isVisualInterventionSoundEnabled) 1f else 0f
+                mediaPlayer.setVolume(volume, volume)
+                start()
+            }
+        }
+        container.addView(
+            videoView,
+            FrameLayout.LayoutParams(videoSizePx, videoSizePx, Gravity.CENTER)
+        )
+
+        if (settings.isVisualInterventionDebugInfoEnabled) {
+            val debugText = TextView(this).apply {
+                setTextColor(Color.WHITE)
+                textSize = 12f
+                setPadding(8, 4, 8, 4)
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    setColor(Color.argb(200, 0, 0, 0))
+                }
+                text = "w:${containerSizePx}px h:${containerSizePx}px angle:${settings.visualInterventionRotationDegrees}"
+            }
+            container.addView(
+                debugText,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.TOP or Gravity.START
+                )
+            )
+        }
+
+        container.post {
+            container.pivotX = 0f
+            container.pivotY = container.height.toFloat()
+            container.rotation = settings.visualInterventionRotationDegrees.toFloat()
+        }
+
+        return container
+    }
+
     private fun createFloatingDebugLayoutParams(): WindowManager.LayoutParams {
         val position = overlayWindowPositionStore.load(
             kind = OverlayWindowKind.FloatingDebug,
@@ -539,6 +640,26 @@ class UsageWatcherService : Service() {
         }
     }
 
+    private fun createVisualInterventionLayoutParams(
+        settings: InterventionSettings
+    ): WindowManager.LayoutParams {
+        val frameThicknessPx = if (settings.isVisualInterventionFrameEnabled) {
+            dpToPx(settings.visualInterventionFrameThicknessDp)
+        } else {
+            0
+        }
+        val size = visualInterventionVideoSizePx(settings) + frameThicknessPx * 2
+        return WindowManager.LayoutParams(
+            size,
+            size,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.CENTER
+        }
+    }
+
     private fun floatingDebugText(state: WatcherState): String {
         return floatingDebugTextForState(state)
     }
@@ -571,6 +692,16 @@ class UsageWatcherService : Service() {
         interventionPopupView = null
         interventionPopupLayoutParams = null
         hideInterventionPopupRunnable = null
+    }
+
+    private fun removeVisualIntervention() {
+        val view = visualInterventionView ?: return
+        if (view.parent != null) {
+            windowManager.removeView(view)
+        }
+        visualInterventionView = null
+        visualInterventionLayoutParams = null
+        hideVisualInterventionRunnable = null
     }
 
     private fun registerScreenEventReceiver() {
@@ -723,6 +854,14 @@ class UsageWatcherService : Service() {
 
     private fun timerStrokeWidthPx(): Int {
         return (3 * resources.displayMetrics.density).toInt().coerceAtLeast(1)
+    }
+
+    private fun visualInterventionVideoSizePx(settings: InterventionSettings): Int {
+        return (dpToPx(260) * settings.visualInterventionZoomPercent.coerceAtLeast(1)) / 100
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt().coerceAtLeast(0)
     }
 
     private fun saveOverlayWindowPosition(

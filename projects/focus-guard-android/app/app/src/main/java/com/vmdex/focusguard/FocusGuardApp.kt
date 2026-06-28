@@ -453,6 +453,69 @@ private fun ConfigureInterventionsScreen(
                 minLines = 2
             )
 
+            InterventionSwitchRow(
+                label = "Visual intervention",
+                checked = draftSettings.isVisualInterventionEnabled,
+                onCheckedChange = { isEnabled ->
+                    draftSettings = draftSettings.copy(isVisualInterventionEnabled = isEnabled)
+                }
+            )
+
+            InterventionSwitchRow(
+                label = "Sound enabled",
+                checked = draftSettings.isVisualInterventionSoundEnabled,
+                onCheckedChange = { isEnabled ->
+                    draftSettings = draftSettings.copy(isVisualInterventionSoundEnabled = isEnabled)
+                },
+                enabled = draftSettings.isVisualInterventionEnabled
+            )
+
+            InterventionSwitchRow(
+                label = "White frame",
+                checked = draftSettings.isVisualInterventionFrameEnabled,
+                onCheckedChange = { isEnabled ->
+                    draftSettings = draftSettings.copy(isVisualInterventionFrameEnabled = isEnabled)
+                },
+                enabled = draftSettings.isVisualInterventionEnabled
+            )
+
+            IntegerField(
+                label = "White frame thickness dp",
+                value = draftSettings.visualInterventionFrameThicknessDp,
+                onValueChanged = { value ->
+                    draftSettings = draftSettings.copy(visualInterventionFrameThicknessDp = value)
+                },
+                enabled = draftSettings.isVisualInterventionEnabled
+            )
+
+            IntegerField(
+                label = "Rotation degrees",
+                value = draftSettings.visualInterventionRotationDegrees,
+                onValueChanged = { value ->
+                    draftSettings = draftSettings.copy(visualInterventionRotationDegrees = value)
+                },
+                enabled = draftSettings.isVisualInterventionEnabled,
+                allowNegative = true
+            )
+
+            IntegerField(
+                label = "Zoom percent",
+                value = draftSettings.visualInterventionZoomPercent,
+                onValueChanged = { value ->
+                    draftSettings = draftSettings.copy(visualInterventionZoomPercent = value.coerceAtLeast(1))
+                },
+                enabled = draftSettings.isVisualInterventionEnabled
+            )
+
+            InterventionSwitchRow(
+                label = "Debug size and angle",
+                checked = draftSettings.isVisualInterventionDebugInfoEnabled,
+                onCheckedChange = { isEnabled ->
+                    draftSettings = draftSettings.copy(isVisualInterventionDebugInfoEnabled = isEnabled)
+                },
+                enabled = draftSettings.isVisualInterventionEnabled
+            )
+
             Button(
                 onClick = { draftSettings = InterventionSettings() },
                 modifier = Modifier.fillMaxWidth()
@@ -460,7 +523,10 @@ private fun ConfigureInterventionsScreen(
                 Text(text = "Restore defaults")
             }
 
-            if (!draftSettings.isNotificationEnabled && !draftSettings.isPopupEnabled) {
+            if (!draftSettings.isNotificationEnabled &&
+                !draftSettings.isPopupEnabled &&
+                !draftSettings.isVisualInterventionEnabled
+            ) {
                 Text(
                     text = "No intervention channel enabled.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -475,7 +541,8 @@ private fun ConfigureInterventionsScreen(
 private fun InterventionSwitchRow(
     label: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -485,9 +552,55 @@ private fun InterventionSwitchRow(
         Text(text = label, style = MaterialTheme.typography.bodyLarge)
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange
+            onCheckedChange = onCheckedChange,
+            enabled = enabled
         )
     }
+}
+
+@Composable
+private fun IntegerField(
+    label: String,
+    value: Int,
+    onValueChanged: (Int) -> Unit,
+    enabled: Boolean = true,
+    allowNegative: Boolean = false
+) {
+    var text by rememberSaveable(label) { mutableStateOf(value.toString()) }
+
+    LaunchedEffect(value) {
+        if (text.isNotBlank() && text.toIntOrNull() != value) {
+            text = value.toString()
+        }
+    }
+
+    OutlinedTextField(
+        value = text,
+        onValueChange = { nextText ->
+            if (nextText.isNotEmpty()) {
+                val isAllowed = nextText.withIndex().all { (index, char) ->
+                    char.isDigit() || (allowNegative && index == 0 && char == '-')
+                }
+                if (!isAllowed) {
+                    return@OutlinedTextField
+                }
+            }
+
+            text = nextText
+            nextText.toIntOrNull()?.let(onValueChanged)
+        },
+        label = { Text(text = label) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { focusState ->
+                if (!focusState.isFocused && text.isBlank()) {
+                    text = value.toString()
+                }
+            },
+        enabled = enabled,
+        singleLine = true,
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number)
+    )
 }
 
 @Composable
@@ -804,6 +917,9 @@ private fun InterventionSettingsCard(
         if (interventionSettings.isPopupEnabled) {
             add("Custom overlay popup")
         }
+        if (interventionSettings.isVisualInterventionEnabled) {
+            add("Visual intervention")
+        }
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -837,6 +953,13 @@ private fun InterventionSettingsCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(text = "Configure")
+            }
+
+            Button(
+                onClick = onConfigureInterventions,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "Configure Visual intervention")
             }
         }
     }
