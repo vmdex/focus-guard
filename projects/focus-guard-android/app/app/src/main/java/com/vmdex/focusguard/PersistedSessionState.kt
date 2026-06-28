@@ -4,6 +4,7 @@ data class PersistedSessionState(
     val packageName: String,
     val sessionStartedAtMillis: Long,
     val sessionElapsedMillis: Long = 0L,
+    val appElapsedMillis: Map<String, Long> = emptyMap(),
     val currentActiveStartedAtMillis: Long? = null,
     val interruptionStartedAtMillis: Long? = null,
     val status: SessionStatus = SessionStatus.Active,
@@ -14,7 +15,7 @@ data class PersistedSessionState(
     val eventType: Int = 0,
     val lastForegroundPackageName: String = packageName
 ) {
-    val sessionKey: String = "$packageName:$sessionStartedAtMillis"
+    val sessionKey: String = "tracked:$sessionStartedAtMillis"
     val currentActiveElapsedMillis: Long
         get() = if (status == SessionStatus.Active && currentActiveStartedAtMillis != null) {
             (lastUpdatedTimeMillis - currentActiveStartedAtMillis).coerceAtLeast(0L)

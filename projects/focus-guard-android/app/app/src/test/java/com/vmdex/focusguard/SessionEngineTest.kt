@@ -35,6 +35,7 @@ class SessionEngineTest {
         val session = requireNotNull(result.session)
         assertEquals(SessionStatus.GracePeriod, session.status)
         assertEquals(3_000L, session.sessionElapsedMillis)
+        assertEquals(3_000L, session.appElapsedMillis[ChromePackage])
         assertEquals(0L, session.currentActiveElapsedMillis)
         assertNull(result.limitAlertRequest)
     }
@@ -242,9 +243,9 @@ class SessionEngineTest {
         assertNull(result.limitAlertRequest)
     }
 
-    // Перевіряємо, що перехід з одного tracked app в інший стартує нову session.
+    // Перевіряємо, що перехід з одного tracked app в інший продовжує ту саму session.
     @Test
-    fun switchingToAnotherTrackedAppStartsNewSession() {
+    fun switchingToAnotherTrackedAppContinuesSameSession() {
         val engineWithTwoTrackedApps = SessionEngine(
             trackedAppPackages = setOf(ChromePackage, TwitchPackage),
             ignoredPackageName = FocusGuardPackage
@@ -263,8 +264,12 @@ class SessionEngineTest {
 
         val session = requireNotNull(result.session)
         assertEquals(TwitchPackage, session.packageName)
-        assertEquals(4_000L, session.sessionStartedAtMillis)
-        assertEquals(1_000L, session.sessionElapsedMillis)
+        assertEquals(1_000L, session.sessionStartedAtMillis)
+        assertEquals("tracked:1000", session.sessionKey)
+        assertEquals(4_000L, session.sessionElapsedMillis)
+        assertEquals(3_000L, session.appElapsedMillis[ChromePackage])
+        assertEquals(1_000L, session.appElapsedMillis[TwitchPackage])
+        assertEquals(4_000L, session.currentActiveElapsedMillis)
     }
 
     // Перевіряємо, що Focus Guard не трекається сам себе, навіть якщо випадково є у tracked packages.
@@ -530,6 +535,7 @@ class SessionEngineTest {
             packageName = ChromePackage,
             sessionStartedAtMillis = 1_000L,
             sessionElapsedMillis = sessionElapsedMillis,
+            appElapsedMillis = mapOf(ChromePackage to sessionElapsedMillis),
             currentActiveStartedAtMillis = currentActiveStartedAtMillis,
             status = SessionStatus.Active,
             effectiveSettings = settings,
@@ -551,6 +557,7 @@ class SessionEngineTest {
                 lastForegroundPackageName = session.lastForegroundPackageName,
                 interruptionStartedAtMillis = session.interruptionStartedAtMillis,
                 sessionElapsedMillis = session.sessionElapsedMillis,
+                appElapsedMillis = session.appElapsedMillis,
                 currentActiveElapsedMillis = session.currentActiveElapsedMillis,
                 isAlertSentForSession = session.alertedSessionKey == session.sessionKey
             ),

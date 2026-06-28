@@ -882,7 +882,7 @@ private fun CurrentSessionRows(
             )
             val isLimitExceeded = elapsedMillis >= settings.sessionLimitMillis
 
-            DevInfoRow(label = "Session app", value = foregroundAppState.packageName)
+            DevInfoRow(label = "Current app", value = foregroundAppState.packageName)
             DevInfoRow(label = "Session key", value = foregroundAppState.sessionKey)
             DevInfoRow(
                 label = "Alert sent for session",
@@ -890,6 +890,22 @@ private fun CurrentSessionRows(
             )
             DevInfoRow(label = "Session started", value = formatTimestamp(foregroundAppState.timestampMillis))
             DevInfoRow(label = "Session elapsed", value = formatElapsed(elapsedMillis))
+            Text(
+                text = "Session app times",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = foregroundAppState.appElapsedMillis
+                    .entries
+                    .sortedByDescending { it.value }
+                    .joinToString(separator = "\n") { (packageName, elapsed) ->
+                        "${packageName.substringAfterLast('.')}: ${formatElapsed(elapsed)}"
+                    }
+                    .ifBlank { "-" },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             DevInfoRow(
                 label = "Current active elapsed",
                 value = formatElapsed(foregroundAppState.currentActiveElapsedMillis)
@@ -907,7 +923,7 @@ private fun CurrentSessionRows(
         }
 
         else -> {
-            DevInfoRow(label = "Session app", value = "-")
+            DevInfoRow(label = "Current app", value = "-")
             DevInfoRow(label = "Session elapsed", value = "00:00")
             DevInfoRow(label = "Current active elapsed", value = "00:00")
             DevInfoRow(label = "Limit status", value = "-")

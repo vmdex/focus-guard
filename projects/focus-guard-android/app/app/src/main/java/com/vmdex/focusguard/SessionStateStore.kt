@@ -24,13 +24,19 @@ class SessionStateStore(context: Context) {
             packageName = packageName,
             sessionStartedAtMillis = sessionStartedAt,
             sessionElapsedMillis = preferences.getLong(SessionElapsedMillisKey, 0L),
+            appElapsedMillis = preferences
+                .getString(AppElapsedMillisKey, null)
+                .orEmpty()
+                .toAppElapsedMillis(),
             currentActiveStartedAtMillis = currentActiveStartedAt,
             interruptionStartedAtMillis = interruptionStartedAt,
             status = preferences.getString(SessionStatusKey, SessionStatus.Ended.name)
                 ?.let(SessionStatus::valueOf)
                 ?: SessionStatus.Ended,
             effectiveSettings = readEffectiveSettings(),
-            alertedSessionKey = preferences.getString(AlertedSessionKeyKey, null),
+            alertedSessionKey = preferences
+                .getString(AlertedSessionKeyKey, null)
+                .migrateSessionKey(packageName, sessionStartedAt),
             lastUpdatedTimeMillis = preferences.getLong(LastUpdatedTimeMillisKey, sessionStartedAt),
             className = preferences.getString(SessionClassNameKey, null),
             eventType = preferences.getInt(SessionEventTypeKey, 0),
@@ -43,6 +49,7 @@ class SessionStateStore(context: Context) {
             putString(SessionPackageNameKey, state.packageName)
             putLong(SessionStartedAtMillisKey, state.sessionStartedAtMillis)
             putLong(SessionElapsedMillisKey, state.sessionElapsedMillis)
+            putString(AppElapsedMillisKey, state.appElapsedMillis.toStoreString())
             putLong(CurrentActiveStartedAtMillisKey, state.currentActiveStartedAtMillis ?: 0L)
             putLong(InterruptionStartedAtMillisKey, state.interruptionStartedAtMillis ?: 0L)
             putString(SessionStatusKey, state.status.name)
@@ -82,10 +89,50 @@ class SessionStateStore(context: Context) {
     }
 }
 
+private fun String?.migrateSessionKey(packageName: String, sessionStartedAtMillis: Long): String? {
+    val sessionKey = this ?: return null
+    val oldPackageSessionKey = "$packageName:$sessionStartedAtMillis"
+    val globalSessionKey = "tracked:$sessionStartedAtMillis"
+
+    return if (sessionKey == oldPackageSessionKey) {
+        globalSessionKey
+    } else {
+        sessionKey
+    }
+}
+
+private fun Map<String, Long>.toStoreString(): String {
+    return entries
+        .sortedBy { it.key }
+        .joinToString(separator = "\n") { (packageName, elapsedMillis) ->
+            "$packageName=$elapsedMillis"
+        }
+}
+
+private fun String.toAppElapsedMillis(): Map<String, Long> {
+    if (isBlank()) {
+        return emptyMap()
+    }
+
+    return lineSequence()
+        .mapNotNull { line ->
+            val separatorIndex = line.lastIndexOf('=')
+            if (separatorIndex <= 0 || separatorIndex == line.lastIndex) {
+                return@mapNotNull null
+            }
+
+            val packageName = line.substring(0, separatorIndex)
+            val elapsedMillis = line.substring(separatorIndex + 1).toLongOrNull() ?: return@mapNotNull null
+            packageName to elapsedMillis
+        }
+        .toMap()
+}
+
 private const val SessionStateStoreName = "focus_guard_session_state"
 private const val SessionPackageNameKey = "session_package_name"
 private const val SessionStartedAtMillisKey = "session_started_at_millis"
 private const val SessionElapsedMillisKey = "session_elapsed_millis"
+private const val AppElapsedMillisKey = "app_elapsed_millis"
 private const val CurrentActiveStartedAtMillisKey = "current_active_started_at_millis"
 private const val InterruptionStartedAtMillisKey = "interruption_started_at_millis"
 private const val SessionStatusKey = "session_status"

@@ -212,6 +212,7 @@ class UsageWatcherService : Service() {
             lastForegroundPackageName = snapshot.lastForegroundPackageName ?: session.lastForegroundPackageName,
             interruptionStartedAtMillis = session.interruptionStartedAtMillis,
             sessionElapsedMillis = session.sessionElapsedMillis,
+            appElapsedMillis = session.appElapsedMillis,
             currentActiveElapsedMillis = session.currentActiveElapsedMillis,
             isAlertSentForSession = session.alertedSessionKey == session.sessionKey
         )

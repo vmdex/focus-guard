@@ -59,13 +59,18 @@ class SessionEngine(
             return session
         }
 
-        if (session == null || session.packageName != latestForegroundPackageName) {
+        if (session == null) {
             return session
         }
 
         return when (session.status) {
-            SessionStatus.Active -> session
+            SessionStatus.Active -> session.copy(
+                packageName = latestForegroundPackageName,
+                lastForegroundPackageName = latestForegroundPackageName,
+                lastUpdatedTimeMillis = currentTimeMillis
+            )
             SessionStatus.GracePeriod -> session.copy(
+                packageName = latestForegroundPackageName,
                 status = SessionStatus.Active,
                 currentActiveStartedAtMillis = currentTimeMillis,
                 interruptionStartedAtMillis = null,
@@ -91,13 +96,13 @@ class SessionEngine(
     ): PersistedSessionState? {
         if (transition.packageName.isTrackedApp()) {
             if (session == null ||
-                session.packageName != transition.packageName ||
                 session.status == SessionStatus.Ended
             ) {
                 return startSession(transition, savedSettings)
             }
 
             return session.copy(
+                packageName = transition.packageName,
                 status = SessionStatus.Active,
                 currentActiveStartedAtMillis = session.currentActiveStartedAtMillis ?: transition.timestampMillis,
                 interruptionStartedAtMillis = null,
@@ -141,6 +146,10 @@ class SessionEngine(
                 val elapsedDelta = currentTimeMillis - session.lastUpdatedTimeMillis
                 session.copy(
                     sessionElapsedMillis = session.sessionElapsedMillis + elapsedDelta,
+                    appElapsedMillis = session.appElapsedMillis.plusElapsed(
+                        packageName = session.packageName,
+                        elapsedDelta = elapsedDelta
+                    ),
                     lastUpdatedTimeMillis = currentTimeMillis
                 )
             }
@@ -167,6 +176,7 @@ class SessionEngine(
         return PersistedSessionState(
             packageName = transition.packageName,
             sessionStartedAtMillis = transition.timestampMillis,
+            appElapsedMillis = mapOf(transition.packageName to 0L),
             currentActiveStartedAtMillis = transition.timestampMillis,
             status = SessionStatus.Active,
             effectiveSettings = settings,
@@ -215,6 +225,17 @@ class SessionEngine(
             lastForegroundPackageName = lastForegroundPackageName ?: this.lastForegroundPackageName,
             lastUpdatedTimeMillis = currentTimeMillis
         )
+    }
+
+    private fun Map<String, Long>.plusElapsed(
+        packageName: String,
+        elapsedDelta: Long
+    ): Map<String, Long> {
+        if (elapsedDelta <= 0L) {
+            return this
+        }
+
+        return this + (packageName to ((this[packageName] ?: 0L) + elapsedDelta))
     }
 }
 

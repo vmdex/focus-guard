@@ -76,6 +76,7 @@ class WatcherStateStore(context: Context) {
                     putString(ForegroundLastPackageNameKey, foregroundState.lastForegroundPackageName)
                     putLong(ForegroundInterruptionStartedAtMillisKey, foregroundState.interruptionStartedAtMillis ?: 0L)
                     putLong(ForegroundSessionElapsedMillisKey, foregroundState.sessionElapsedMillis)
+                    putString(ForegroundAppElapsedMillisKey, foregroundState.appElapsedMillis.toElapsedStoreString())
                     putLong(ForegroundCurrentActiveElapsedMillisKey, foregroundState.currentActiveElapsedMillis)
                     putBoolean(ForegroundIsAlertSentForSessionKey, foregroundState.isAlertSentForSession)
                 }
@@ -112,6 +113,10 @@ class WatcherStateStore(context: Context) {
             lastForegroundPackageName = preferences.getString(ForegroundLastPackageNameKey, null) ?: "-",
             interruptionStartedAtMillis = interruptionStartedAt,
             sessionElapsedMillis = preferences.getLong(ForegroundSessionElapsedMillisKey, 0L),
+            appElapsedMillis = preferences
+                .getString(ForegroundAppElapsedMillisKey, null)
+                .orEmpty()
+                .toElapsedMap(),
             currentActiveElapsedMillis = preferences.getLong(ForegroundCurrentActiveElapsedMillisKey, 0L),
             isAlertSentForSession = preferences.getBoolean(ForegroundIsAlertSentForSessionKey, false)
         )
@@ -195,6 +200,33 @@ class WatcherStateStore(context: Context) {
     }
 }
 
+private fun Map<String, Long>.toElapsedStoreString(): String {
+    return entries
+        .sortedBy { it.key }
+        .joinToString(separator = "\n") { (packageName, elapsedMillis) ->
+            "$packageName=$elapsedMillis"
+        }
+}
+
+private fun String.toElapsedMap(): Map<String, Long> {
+    if (isBlank()) {
+        return emptyMap()
+    }
+
+    return lineSequence()
+        .mapNotNull { line ->
+            val separatorIndex = line.lastIndexOf('=')
+            if (separatorIndex <= 0 || separatorIndex == line.lastIndex) {
+                return@mapNotNull null
+            }
+
+            val packageName = line.substring(0, separatorIndex)
+            val elapsedMillis = line.substring(separatorIndex + 1).toLongOrNull() ?: return@mapNotNull null
+            packageName to elapsedMillis
+        }
+        .toMap()
+}
+
 private fun List<UsageRawEventDebugEntry>.toStoreString(): String {
     return joinToString(separator = "\n") { event ->
         listOf(
@@ -263,6 +295,7 @@ private const val ForegroundSessionStatusKey = "foreground_session_status"
 private const val ForegroundLastPackageNameKey = "foreground_last_package_name"
 private const val ForegroundInterruptionStartedAtMillisKey = "foreground_interruption_started_at_millis"
 private const val ForegroundSessionElapsedMillisKey = "foreground_session_elapsed_millis"
+private const val ForegroundAppElapsedMillisKey = "foreground_app_elapsed_millis"
 private const val ForegroundCurrentActiveElapsedMillisKey = "foreground_current_active_elapsed_millis"
 private const val ForegroundIsAlertSentForSessionKey = "foreground_is_alert_sent_for_session"
 
