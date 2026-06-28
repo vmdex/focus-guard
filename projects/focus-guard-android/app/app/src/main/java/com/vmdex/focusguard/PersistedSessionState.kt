@@ -22,4 +22,7 @@ data class PersistedSessionState(
         } else {
             0L
         }
+
+    val isPausedByScreenLock: Boolean
+        get() = status == SessionStatus.PausedByScreenLock
 }

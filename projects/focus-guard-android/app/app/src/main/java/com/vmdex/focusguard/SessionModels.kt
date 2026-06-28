@@ -46,6 +46,7 @@ sealed interface ForegroundAppState {
 
 enum class SessionStatus {
     Active,
+    PausedByScreenLock,
     GracePeriod,
     Ended
 }
@@ -54,6 +55,7 @@ fun isSessionInProgress(foregroundAppState: ForegroundAppState): Boolean {
     val detected = foregroundAppState as? ForegroundAppState.Detected ?: return false
 
     return detected.sessionStatus == SessionStatus.Active ||
+        detected.sessionStatus == SessionStatus.PausedByScreenLock ||
         detected.sessionStatus == SessionStatus.GracePeriod
 }
 

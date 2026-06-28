@@ -5,8 +5,11 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.app.KeyguardManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
@@ -15,6 +18,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -43,6 +47,17 @@ class UsageWatcherService : Service() {
     private var interventionPopupView: TextView? = null
     private var interventionPopupLayoutParams: WindowManager.LayoutParams? = null
     private var hideInterventionPopupRunnable: Runnable? = null
+    private var isScreenEventReceiverRegistered = false
+
+    private val screenEventReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val state = buildNextWatcherState(screenEvent = intent.action?.screenEventLabel())
+            stateStore.save(state)
+            updateMonitoringNotification(state)
+            updateFloatingDebugWindow(state)
+            updateSessionTimerWindow(state)
+        }
+    }
 
     private val tickRunnable = object : Runnable {
         override fun run() {
@@ -94,6 +109,7 @@ class UsageWatcherService : Service() {
         val state = buildNextWatcherState()
         stateStore.save(state)
         startForeground(WatcherNotificationId, buildMonitoringNotification(state))
+        registerScreenEventReceiver()
         updateFloatingDebugWindow(state)
         updateSessionTimerWindow(state)
         handler.removeCallbacks(tickRunnable)
@@ -102,6 +118,7 @@ class UsageWatcherService : Service() {
 
     private fun stopMonitoring(markNotRunning: Boolean) {
         handler.removeCallbacks(tickRunnable)
+        unregisterScreenEventReceiver()
         hideInterventionPopupRunnable?.let(handler::removeCallbacks)
         removeFloatingDebugWindow()
         removeSessionTimerWindow()
@@ -114,15 +131,25 @@ class UsageWatcherService : Service() {
     }
 
     private fun buildNextWatcherState(): WatcherState {
+        return buildNextWatcherState(screenEvent = null)
+    }
+
+    private fun buildNextWatcherState(screenEvent: String?): WatcherState {
         val now = System.currentTimeMillis()
         val savedSettings = settingsStore.load()
         val previousState = stateStore.load()
+        val deviceInteractionState = currentDeviceInteractionState(
+            previousState = previousState.deviceInteractionState,
+            screenEvent = screenEvent,
+            currentTimeMillis = now
+        )
         if (!hasUsageAccessPermission(this)) {
             return WatcherState(
                 isRunning = true,
                 lastTickTimeMillis = now,
                 foregroundAppState = ForegroundAppState.PermissionMissing,
                 usageDebugState = previousState.usageDebugState,
+                deviceInteractionState = deviceInteractionState,
                 alertState = previousState.alertState,
                 interventionState = previousState.interventionState,
                 effectiveSettings = effectiveSettings,
@@ -139,7 +166,8 @@ class UsageWatcherService : Service() {
             previousSession = previousSession,
             snapshot = snapshot,
             savedSettings = savedSettings,
-            currentTimeMillis = now
+            currentTimeMillis = now,
+            isScreenLocked = deviceInteractionState.isScreenLocked
         )
         var session = engineResult.session
         session = maybeShowLimitExceededNotification(session, engineResult.limitAlertRequest, now)
@@ -162,10 +190,31 @@ class UsageWatcherService : Service() {
             lastTickTimeMillis = now,
             foregroundAppState = foregroundAppState,
             usageDebugState = snapshot.debugState,
+            deviceInteractionState = deviceInteractionState,
             alertState = alertState,
             interventionState = interventionState,
             effectiveSettings = effectiveSettings,
             sessionResetTimeMillis = previousState.sessionResetTimeMillis
+        )
+    }
+
+    private fun currentDeviceInteractionState(
+        previousState: DeviceInteractionState,
+        screenEvent: String?,
+        currentTimeMillis: Long
+    ): DeviceInteractionState {
+        val powerManager = getSystemService(PowerManager::class.java)
+        val keyguardManager = getSystemService(KeyguardManager::class.java)
+
+        return DeviceInteractionState(
+            isInteractive = powerManager?.isInteractive ?: previousState.isInteractive,
+            isKeyguardLocked = keyguardManager?.isKeyguardLocked ?: previousState.isKeyguardLocked,
+            lastScreenEvent = screenEvent ?: previousState.lastScreenEvent,
+            lastScreenEventTimeMillis = if (screenEvent != null) {
+                currentTimeMillis
+            } else {
+                previousState.lastScreenEventTimeMillis
+            }
         )
     }
 
@@ -463,6 +512,29 @@ class UsageWatcherService : Service() {
         hideInterventionPopupRunnable = null
     }
 
+    private fun registerScreenEventReceiver() {
+        if (isScreenEventReceiverRegistered) {
+            return
+        }
+
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
+        registerReceiver(screenEventReceiver, filter)
+        isScreenEventReceiverRegistered = true
+    }
+
+    private fun unregisterScreenEventReceiver() {
+        if (!isScreenEventReceiverRegistered) {
+            return
+        }
+
+        unregisterReceiver(screenEventReceiver)
+        isScreenEventReceiverRegistered = false
+    }
+
     private fun buildMonitoringNotification(state: WatcherState): Notification {
         val openAppIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
@@ -644,5 +716,14 @@ private class SessionTimerTextView(context: Context) : TextView(context) {
     override fun performClick(): Boolean {
         super.performClick()
         return true
+    }
+}
+
+private fun String.screenEventLabel(): String {
+    return when (this) {
+        Intent.ACTION_SCREEN_OFF -> "screen off"
+        Intent.ACTION_SCREEN_ON -> "screen on"
+        Intent.ACTION_USER_PRESENT -> "user present"
+        else -> this
     }
 }

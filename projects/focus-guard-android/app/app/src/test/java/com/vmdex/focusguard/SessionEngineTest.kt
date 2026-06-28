@@ -507,6 +507,115 @@ class SessionEngineTest {
         assertEquals(graceSession.sessionKey, returnedSession.sessionKey)
     }
 
+    // Перевіряємо, що lock screen ставить active session на паузу і не запускає grace.
+    @Test
+    fun screenLockPausesActiveSessionWithoutStartingGrace() {
+        val activeSession = requireNotNull(
+            engine.buildNextSession(
+                previousSession = null,
+                snapshot = snapshot(
+                    lastForegroundPackageName = ChromePackage,
+                    transition(ChromePackage, 1_000L)
+                ),
+                savedSettings = settings,
+                currentTimeMillis = 4_000L
+            ).session
+        )
+
+        val result = engine.buildNextSession(
+            previousSession = activeSession,
+            snapshot = snapshot(lastForegroundPackageName = LauncherPackage),
+            savedSettings = settings,
+            currentTimeMillis = 6_000L,
+            isScreenLocked = true
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(SessionStatus.PausedByScreenLock, session.status)
+        assertEquals(5_000L, session.sessionElapsedMillis)
+        assertNull(session.interruptionStartedAtMillis)
+        assertNull(result.limitAlertRequest)
+    }
+
+    // Перевіряємо, що lock screen під час grace заморожує session і не дає grace завершитись.
+    @Test
+    fun screenLockPausesGraceSessionWithoutExpiringGrace() {
+        val graceSession = activeSession(
+            sessionElapsedMillis = 5_000L,
+            currentActiveStartedAtMillis = 1_000L,
+            lastUpdatedTimeMillis = 6_000L
+        ).copy(
+            status = SessionStatus.GracePeriod,
+            currentActiveStartedAtMillis = null,
+            interruptionStartedAtMillis = 6_000L,
+            lastForegroundPackageName = LauncherPackage
+        )
+
+        val result = engine.buildNextSession(
+            previousSession = graceSession,
+            snapshot = snapshot(lastForegroundPackageName = LauncherPackage),
+            savedSettings = settings,
+            currentTimeMillis = 60_000L,
+            isScreenLocked = true
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(SessionStatus.PausedByScreenLock, session.status)
+        assertEquals(5_000L, session.sessionElapsedMillis)
+        assertNull(session.interruptionStartedAtMillis)
+    }
+
+    // Перевіряємо, що після unlock у tracked app session продовжується без рахування часу lock screen.
+    @Test
+    fun unlockToTrackedAppResumesPausedSession() {
+        val pausedSession = activeSession(
+            sessionElapsedMillis = 5_000L,
+            currentActiveStartedAtMillis = 1_000L,
+            lastUpdatedTimeMillis = 6_000L
+        ).copy(
+            status = SessionStatus.PausedByScreenLock,
+            currentActiveStartedAtMillis = null
+        )
+
+        val result = engine.buildNextSession(
+            previousSession = pausedSession,
+            snapshot = snapshot(lastForegroundPackageName = ChromePackage),
+            savedSettings = settings,
+            currentTimeMillis = 66_000L
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(SessionStatus.Active, session.status)
+        assertEquals(5_000L, session.sessionElapsedMillis)
+        assertEquals(0L, session.currentActiveElapsedMillis)
+        assertEquals(66_000L, session.currentActiveStartedAtMillis)
+    }
+
+    // Перевіряємо, що після unlock у non-tracked app paused session переходить у grace з нового моменту.
+    @Test
+    fun unlockToUntrackedAppStartsGraceAfterPausedSession() {
+        val pausedSession = activeSession(
+            sessionElapsedMillis = 5_000L,
+            currentActiveStartedAtMillis = 1_000L,
+            lastUpdatedTimeMillis = 6_000L
+        ).copy(
+            status = SessionStatus.PausedByScreenLock,
+            currentActiveStartedAtMillis = null
+        )
+
+        val result = engine.buildNextSession(
+            previousSession = pausedSession,
+            snapshot = snapshot(lastForegroundPackageName = LauncherPackage),
+            savedSettings = settings,
+            currentTimeMillis = 66_000L
+        )
+
+        val session = requireNotNull(result.session)
+        assertEquals(SessionStatus.GracePeriod, session.status)
+        assertEquals(5_000L, session.sessionElapsedMillis)
+        assertEquals(66_000L, session.interruptionStartedAtMillis)
+    }
+
     private fun snapshot(
         lastForegroundPackageName: String?,
         vararg transitions: ForegroundTransition

@@ -19,6 +19,10 @@ private fun floatingTrackedDebugText(
     interventionState: InterventionState
 ): String {
     val currentForegroundPackageName = foregroundState.lastForegroundPackageName
+    if (foregroundState.sessionStatus == SessionStatus.PausedByScreenLock) {
+        return "Paused: ${shortPackageName(foregroundState.packageName)}"
+    }
+
     if (foregroundState.sessionStatus != SessionStatus.Active ||
         currentForegroundPackageName != foregroundState.packageName
     ) {

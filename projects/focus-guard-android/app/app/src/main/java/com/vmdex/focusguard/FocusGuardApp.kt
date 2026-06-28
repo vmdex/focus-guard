@@ -963,6 +963,9 @@ private fun DevInfoCard(
             DevInfoSectionTitle(text = "Foreground")
             ForegroundAppRows(foregroundAppState)
 
+            DevInfoSectionTitle(text = "Device")
+            DeviceInteractionRows(watcherState.deviceInteractionState)
+
             DevInfoSectionTitle(text = "Usage events")
             UsageDebugRows(watcherState.usageDebugState)
 
@@ -1045,6 +1048,18 @@ private fun InterventionRows(interventionState: InterventionState) {
         value = interventionState.notificationLeftMillis?.let(::formatElapsed) ?: "-"
     )
     DevInfoRow(label = "Intervention session", value = interventionState.sessionKey ?: "-")
+}
+
+@Composable
+private fun DeviceInteractionRows(deviceInteractionState: DeviceInteractionState) {
+    DevInfoRow(label = "Interactive", value = deviceInteractionState.isInteractive.toString())
+    DevInfoRow(label = "Keyguard locked", value = deviceInteractionState.isKeyguardLocked.toString())
+    DevInfoRow(label = "Screen locked", value = deviceInteractionState.isScreenLocked.toString())
+    DevInfoRow(label = "Last screen event", value = deviceInteractionState.lastScreenEvent ?: "-")
+    DevInfoRow(
+        label = "Last screen event time",
+        value = deviceInteractionState.lastScreenEventTimeMillis?.let(::formatTimestamp) ?: "-"
+    )
 }
 
 @Composable
@@ -1225,6 +1240,7 @@ private fun shortDebugPackageName(packageName: String): String {
 private fun sessionStatusLabel(sessionStatus: SessionStatus): String {
     return when (sessionStatus) {
         SessionStatus.Active -> "Active"
+        SessionStatus.PausedByScreenLock -> "Paused by screen lock"
         SessionStatus.GracePeriod -> "Grace period"
         SessionStatus.Ended -> "Ended"
     }

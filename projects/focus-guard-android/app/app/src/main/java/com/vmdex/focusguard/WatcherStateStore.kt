@@ -14,6 +14,7 @@ class WatcherStateStore(context: Context) {
             lastTickTimeMillis = lastTick.takeIf { it > 0L },
             foregroundAppState = readForegroundAppState(),
             usageDebugState = readUsageDebugState(),
+            deviceInteractionState = readDeviceInteractionState(),
             alertState = readAlertState(),
             interventionState = readInterventionState(),
             effectiveSettings = readEffectiveSettings(),
@@ -40,6 +41,13 @@ class WatcherStateStore(context: Context) {
             )
             putInt(UsageTransitionCountKey, state.usageDebugState.transitionCount)
             putString(UsageRecentRawEventsKey, state.usageDebugState.recentRawEvents.toStoreString())
+            putBoolean(DeviceIsInteractiveKey, state.deviceInteractionState.isInteractive)
+            putBoolean(DeviceIsKeyguardLockedKey, state.deviceInteractionState.isKeyguardLocked)
+            putString(DeviceLastScreenEventKey, state.deviceInteractionState.lastScreenEvent)
+            putLong(
+                DeviceLastScreenEventTimeMillisKey,
+                state.deviceInteractionState.lastScreenEventTimeMillis ?: 0L
+            )
             putInt(EffectiveGracePeriodSecondsKey, state.effectiveSettings.gracePeriodSeconds)
             putInt(EffectiveSessionLimitSecondsKey, state.effectiveSettings.sessionLimitSeconds)
             putInt(EffectiveAlertDelayAfterResumeSecondsKey, state.effectiveSettings.alertDelayAfterResumeSeconds)
@@ -182,6 +190,17 @@ class WatcherStateStore(context: Context) {
         )
     }
 
+    private fun readDeviceInteractionState(): DeviceInteractionState {
+        val lastScreenEventTime = preferences.getLong(DeviceLastScreenEventTimeMillisKey, 0L)
+
+        return DeviceInteractionState(
+            isInteractive = preferences.getBoolean(DeviceIsInteractiveKey, true),
+            isKeyguardLocked = preferences.getBoolean(DeviceIsKeyguardLockedKey, false),
+            lastScreenEvent = preferences.getString(DeviceLastScreenEventKey, null),
+            lastScreenEventTimeMillis = lastScreenEventTime.takeIf { it > 0L }
+        )
+    }
+
     private fun readEffectiveSettings(): FocusGuardSettings {
         return FocusGuardSettings(
             gracePeriodMillis = preferences
@@ -280,6 +299,11 @@ private const val UsageLastForegroundStartTimeMillisKey = "usage_last_foreground
 private const val UsageTransitionCountKey = "usage_transition_count"
 private const val UsageRecentRawEventsKey = "usage_recent_raw_events"
 private const val UsageRawEventFieldSeparator = "|"
+
+private const val DeviceIsInteractiveKey = "device_is_interactive"
+private const val DeviceIsKeyguardLockedKey = "device_is_keyguard_locked"
+private const val DeviceLastScreenEventKey = "device_last_screen_event"
+private const val DeviceLastScreenEventTimeMillisKey = "device_last_screen_event_time_millis"
 
 private const val ForegroundStateKindKey = "foreground_state_kind"
 private const val ForegroundStateKindUnknown = "unknown"

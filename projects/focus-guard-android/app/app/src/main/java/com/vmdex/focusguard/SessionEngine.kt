@@ -8,9 +8,17 @@ class SessionEngine(
         previousSession: PersistedSessionState?,
         snapshot: ForegroundUsageSnapshot,
         savedSettings: FocusGuardSettings,
-        currentTimeMillis: Long
+        currentTimeMillis: Long,
+        isScreenLocked: Boolean = false
     ): SessionEngineResult {
         var session = previousSession?.stopIfNoLongerTracked(currentTimeMillis, snapshot.lastForegroundPackageName)
+        if (isScreenLocked) {
+            session = pauseForScreenLock(session, currentTimeMillis)
+            return SessionEngineResult(
+                session = session,
+                limitAlertRequest = null
+            )
+        }
 
         for (transition in snapshot.transitions.sortedBy { it.timestampMillis }) {
             session = advanceSessionClock(session, transition.timestampMillis)
@@ -55,12 +63,26 @@ class SessionEngine(
         currentTimeMillis: Long
     ): PersistedSessionState? {
         val latestForegroundPackageName = snapshot.lastForegroundPackageName
-        if (latestForegroundPackageName == null || !latestForegroundPackageName.isTrackedApp()) {
+        if (latestForegroundPackageName == null) {
             return session
         }
 
         if (session == null) {
             return session
+        }
+
+        if (!latestForegroundPackageName.isTrackedApp()) {
+            return if (session.status == SessionStatus.PausedByScreenLock) {
+                session.copy(
+                    status = SessionStatus.GracePeriod,
+                    currentActiveStartedAtMillis = null,
+                    interruptionStartedAtMillis = currentTimeMillis,
+                    lastForegroundPackageName = latestForegroundPackageName,
+                    lastUpdatedTimeMillis = currentTimeMillis
+                )
+            } else {
+                session
+            }
         }
 
         return when (session.status) {
@@ -70,6 +92,14 @@ class SessionEngine(
                 lastUpdatedTimeMillis = currentTimeMillis
             )
             SessionStatus.GracePeriod -> session.copy(
+                packageName = latestForegroundPackageName,
+                status = SessionStatus.Active,
+                currentActiveStartedAtMillis = currentTimeMillis,
+                interruptionStartedAtMillis = null,
+                lastForegroundPackageName = latestForegroundPackageName,
+                lastUpdatedTimeMillis = currentTimeMillis
+            )
+            SessionStatus.PausedByScreenLock -> session.copy(
                 packageName = latestForegroundPackageName,
                 status = SessionStatus.Active,
                 currentActiveStartedAtMillis = currentTimeMillis,
@@ -101,6 +131,19 @@ class SessionEngine(
                 return startSession(transition, savedSettings)
             }
 
+            if (session.status == SessionStatus.PausedByScreenLock) {
+                return session.copy(
+                    packageName = transition.packageName,
+                    status = SessionStatus.Active,
+                    currentActiveStartedAtMillis = transition.timestampMillis,
+                    interruptionStartedAtMillis = null,
+                    className = transition.className,
+                    eventType = transition.eventType,
+                    lastForegroundPackageName = transition.packageName,
+                    lastUpdatedTimeMillis = transition.timestampMillis
+                )
+            }
+
             return session.copy(
                 packageName = transition.packageName,
                 status = SessionStatus.Active,
@@ -117,16 +160,24 @@ class SessionEngine(
             return null
         }
 
-        return if (session.status == SessionStatus.Active) {
-            session.copy(
+        return when (session.status) {
+            SessionStatus.Active -> session.copy(
                 status = SessionStatus.GracePeriod,
                 currentActiveStartedAtMillis = null,
                 interruptionStartedAtMillis = transition.timestampMillis,
                 lastForegroundPackageName = transition.packageName,
                 lastUpdatedTimeMillis = transition.timestampMillis
             )
-        } else {
-            session.copy(
+
+            SessionStatus.PausedByScreenLock -> session.copy(
+                status = SessionStatus.GracePeriod,
+                currentActiveStartedAtMillis = null,
+                interruptionStartedAtMillis = transition.timestampMillis,
+                lastForegroundPackageName = transition.packageName,
+                lastUpdatedTimeMillis = transition.timestampMillis
+            )
+
+            else -> session.copy(
                 lastForegroundPackageName = transition.packageName,
                 lastUpdatedTimeMillis = transition.timestampMillis
             )
@@ -165,8 +216,36 @@ class SessionEngine(
                 )
             }
 
+            SessionStatus.PausedByScreenLock -> session.copy(lastUpdatedTimeMillis = currentTimeMillis)
+
             SessionStatus.Ended -> session.copy(lastUpdatedTimeMillis = currentTimeMillis)
         }
+    }
+
+    private fun pauseForScreenLock(
+        session: PersistedSessionState?,
+        currentTimeMillis: Long
+    ): PersistedSessionState? {
+        if (session == null || session.status == SessionStatus.Ended) {
+            return session
+        }
+
+        val sessionToPause = if (session.status == SessionStatus.Active) {
+            advanceSessionClock(session, currentTimeMillis) ?: session
+        } else {
+            session
+        }
+
+        if (sessionToPause.status == SessionStatus.Ended) {
+            return sessionToPause
+        }
+
+        return sessionToPause.copy(
+            status = SessionStatus.PausedByScreenLock,
+            currentActiveStartedAtMillis = null,
+            interruptionStartedAtMillis = null,
+            lastUpdatedTimeMillis = currentTimeMillis
+        )
     }
 
     private fun startSession(

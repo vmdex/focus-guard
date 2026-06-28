@@ -5,11 +5,22 @@ data class WatcherState(
     val lastTickTimeMillis: Long? = null,
     val foregroundAppState: ForegroundAppState = ForegroundAppState.Unknown,
     val usageDebugState: UsageDebugState = UsageDebugState(),
+    val deviceInteractionState: DeviceInteractionState = DeviceInteractionState(),
     val alertState: AlertState = AlertState(),
     val interventionState: InterventionState = InterventionState(),
     val effectiveSettings: FocusGuardSettings = FocusGuardSettings(),
     val sessionResetTimeMillis: Long? = null
 )
+
+data class DeviceInteractionState(
+    val isInteractive: Boolean = true,
+    val isKeyguardLocked: Boolean = false,
+    val lastScreenEvent: String? = null,
+    val lastScreenEventTimeMillis: Long? = null
+) {
+    val isScreenLocked: Boolean
+        get() = !isInteractive || isKeyguardLocked
+}
 
 data class UsageDebugState(
     val queryStartTimeMillis: Long? = null,
