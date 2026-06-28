@@ -7,6 +7,8 @@ const val DefaultAlertDelayAfterResumeMillis = 3 * 1000L
 
 const val LimitNotificationChannelId = "focus_guard_heads_up_alerts_v2"
 const val LimitNotificationId = 1001
+const val BootResumeNotificationChannelId = "focus_guard_boot_resume"
+const val BootResumeNotificationId = 1002
 const val NotificationPermissionRequestCode = 2001
 const val WatcherNotificationChannelId = "focus_guard_monitoring"
 const val WatcherNotificationId = 2001

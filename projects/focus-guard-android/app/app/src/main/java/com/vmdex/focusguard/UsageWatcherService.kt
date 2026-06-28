@@ -86,6 +86,7 @@ class UsageWatcherService : Service() {
         effectiveSettings = savedState.effectiveSettings
         createMonitoringChannel()
         notifier.createLimitChannel()
+        notifier.createBootResumeChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -216,8 +217,17 @@ class UsageWatcherService : Service() {
     private fun serviceStartReason(intent: Intent?): String {
         return when (intent?.action) {
             null -> "sticky restart"
-            ActionStart -> "manual start"
+            ActionStart -> manualStartReason()
             else -> "unknown action"
+        }
+    }
+
+    private fun manualStartReason(): String {
+        val previousReason = stateStore.load().serviceRestoreState.serviceStartReason
+        return if (previousReason?.startsWith("boot resume") == true) {
+            "manual start after $previousReason"
+        } else {
+            "manual start"
         }
     }
 
