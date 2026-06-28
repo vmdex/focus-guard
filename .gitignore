@@ -1,6 +1,9 @@
 # Build output
 bin/
 obj/
+build/
+.gradle/
+.kotlin/
 
 # Visual Studio
 .vs/
@@ -18,4 +21,3 @@ obj/
 # OS files
 Thumbs.db
 Desktop.ini
-

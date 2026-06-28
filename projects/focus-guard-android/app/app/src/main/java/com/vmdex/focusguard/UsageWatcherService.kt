@@ -48,6 +48,7 @@ class UsageWatcherService : Service() {
     private var interventionPopupLayoutParams: WindowManager.LayoutParams? = null
     private var hideInterventionPopupRunnable: Runnable? = null
     private var isScreenEventReceiverRegistered = false
+    private var serviceRestoreState = ServiceRestoreState()
 
     private val screenEventReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -94,7 +95,7 @@ class UsageWatcherService : Service() {
             return START_NOT_STICKY
         }
 
-        startMonitoring()
+        startMonitoring(startReason = serviceStartReason(intent))
         return START_STICKY
     }
 
@@ -105,7 +106,8 @@ class UsageWatcherService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun startMonitoring() {
+    private fun startMonitoring(startReason: String = ServiceStartReasonDirectCall) {
+        serviceRestoreState = restoreStateForServiceStart(startReason)
         val state = buildNextWatcherState()
         stateStore.save(state)
         startForeground(WatcherNotificationId, buildMonitoringNotification(state))
@@ -150,6 +152,7 @@ class UsageWatcherService : Service() {
                 foregroundAppState = ForegroundAppState.PermissionMissing,
                 usageDebugState = previousState.usageDebugState,
                 deviceInteractionState = deviceInteractionState,
+                serviceRestoreState = serviceRestoreState,
                 alertState = previousState.alertState,
                 interventionState = previousState.interventionState,
                 effectiveSettings = effectiveSettings,
@@ -191,11 +194,31 @@ class UsageWatcherService : Service() {
             foregroundAppState = foregroundAppState,
             usageDebugState = snapshot.debugState,
             deviceInteractionState = deviceInteractionState,
+            serviceRestoreState = serviceRestoreState,
             alertState = alertState,
             interventionState = interventionState,
             effectiveSettings = effectiveSettings,
             sessionResetTimeMillis = previousState.sessionResetTimeMillis
         )
+    }
+
+    private fun restoreStateForServiceStart(startReason: String): ServiceRestoreState {
+        val restoredSession = sessionStore.load()
+        return ServiceRestoreState(
+            serviceStartReason = startReason,
+            serviceStartTimeMillis = System.currentTimeMillis(),
+            restoredSessionKey = restoredSession?.sessionKey,
+            restoredSessionStatus = restoredSession?.status,
+            restoredSessionElapsedMillis = restoredSession?.sessionElapsedMillis
+        )
+    }
+
+    private fun serviceStartReason(intent: Intent?): String {
+        return when (intent?.action) {
+            null -> "sticky restart"
+            ActionStart -> "manual start"
+            else -> "unknown action"
+        }
     }
 
     private fun currentDeviceInteractionState(
@@ -687,6 +710,7 @@ class UsageWatcherService : Service() {
         private const val ActionStart = "com.vmdex.focusguard.action.START_USAGE_WATCHER"
         private const val ActionStop = "com.vmdex.focusguard.action.STOP_USAGE_WATCHER"
         private const val InterventionPopupDurationMillis = 5_000L
+        private const val ServiceStartReasonDirectCall = "direct call"
 
         fun start(context: Context) {
             val intent = Intent(context, UsageWatcherService::class.java).setAction(ActionStart)

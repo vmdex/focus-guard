@@ -966,6 +966,9 @@ private fun DevInfoCard(
             DevInfoSectionTitle(text = "Device")
             DeviceInteractionRows(watcherState.deviceInteractionState)
 
+            DevInfoSectionTitle(text = "Service restore")
+            ServiceRestoreRows(watcherState.serviceRestoreState)
+
             DevInfoSectionTitle(text = "Usage events")
             UsageDebugRows(watcherState.usageDebugState)
 
@@ -1048,6 +1051,25 @@ private fun InterventionRows(interventionState: InterventionState) {
         value = interventionState.notificationLeftMillis?.let(::formatElapsed) ?: "-"
     )
     DevInfoRow(label = "Intervention session", value = interventionState.sessionKey ?: "-")
+}
+
+@Composable
+private fun ServiceRestoreRows(serviceRestoreState: ServiceRestoreState) {
+    DevInfoRow(label = "Start reason", value = serviceRestoreState.serviceStartReason ?: "-")
+    DevInfoRow(
+        label = "Start time",
+        value = serviceRestoreState.serviceStartTimeMillis?.let(::formatTimestamp) ?: "-"
+    )
+    DevInfoRow(label = "Had persisted session", value = serviceRestoreState.hadPersistedSession.toString())
+    DevInfoRow(label = "Restored session key", value = serviceRestoreState.restoredSessionKey ?: "-")
+    DevInfoRow(
+        label = "Restored status",
+        value = serviceRestoreState.restoredSessionStatus?.let(::sessionStatusLabel) ?: "-"
+    )
+    DevInfoRow(
+        label = "Restored elapsed",
+        value = serviceRestoreState.restoredSessionElapsedMillis?.let(::formatElapsed) ?: "-"
+    )
 }
 
 @Composable

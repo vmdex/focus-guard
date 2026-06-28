@@ -15,6 +15,7 @@ class WatcherStateStore(context: Context) {
             foregroundAppState = readForegroundAppState(),
             usageDebugState = readUsageDebugState(),
             deviceInteractionState = readDeviceInteractionState(),
+            serviceRestoreState = readServiceRestoreState(),
             alertState = readAlertState(),
             interventionState = readInterventionState(),
             effectiveSettings = readEffectiveSettings(),
@@ -47,6 +48,14 @@ class WatcherStateStore(context: Context) {
             putLong(
                 DeviceLastScreenEventTimeMillisKey,
                 state.deviceInteractionState.lastScreenEventTimeMillis ?: 0L
+            )
+            putString(ServiceStartReasonKey, state.serviceRestoreState.serviceStartReason)
+            putLong(ServiceStartTimeMillisKey, state.serviceRestoreState.serviceStartTimeMillis ?: 0L)
+            putString(ServiceRestoredSessionKeyKey, state.serviceRestoreState.restoredSessionKey)
+            putString(ServiceRestoredSessionStatusKey, state.serviceRestoreState.restoredSessionStatus?.name)
+            putLong(
+                ServiceRestoredSessionElapsedMillisKey,
+                state.serviceRestoreState.restoredSessionElapsedMillis ?: 0L
             )
             putInt(EffectiveGracePeriodSecondsKey, state.effectiveSettings.gracePeriodSeconds)
             putInt(EffectiveSessionLimitSecondsKey, state.effectiveSettings.sessionLimitSeconds)
@@ -201,6 +210,21 @@ class WatcherStateStore(context: Context) {
         )
     }
 
+    private fun readServiceRestoreState(): ServiceRestoreState {
+        val serviceStartTime = preferences.getLong(ServiceStartTimeMillisKey, 0L)
+        val restoredElapsed = preferences.getLong(ServiceRestoredSessionElapsedMillisKey, 0L)
+
+        return ServiceRestoreState(
+            serviceStartReason = preferences.getString(ServiceStartReasonKey, null),
+            serviceStartTimeMillis = serviceStartTime.takeIf { it > 0L },
+            restoredSessionKey = preferences.getString(ServiceRestoredSessionKeyKey, null),
+            restoredSessionStatus = preferences
+                .getString(ServiceRestoredSessionStatusKey, null)
+                ?.let(SessionStatus::valueOf),
+            restoredSessionElapsedMillis = restoredElapsed.takeIf { it > 0L }
+        )
+    }
+
     private fun readEffectiveSettings(): FocusGuardSettings {
         return FocusGuardSettings(
             gracePeriodMillis = preferences
@@ -304,6 +328,12 @@ private const val DeviceIsInteractiveKey = "device_is_interactive"
 private const val DeviceIsKeyguardLockedKey = "device_is_keyguard_locked"
 private const val DeviceLastScreenEventKey = "device_last_screen_event"
 private const val DeviceLastScreenEventTimeMillisKey = "device_last_screen_event_time_millis"
+
+private const val ServiceStartReasonKey = "service_start_reason"
+private const val ServiceStartTimeMillisKey = "service_start_time_millis"
+private const val ServiceRestoredSessionKeyKey = "service_restored_session_key"
+private const val ServiceRestoredSessionStatusKey = "service_restored_session_status"
+private const val ServiceRestoredSessionElapsedMillisKey = "service_restored_session_elapsed_millis"
 
 private const val ForegroundStateKindKey = "foreground_state_kind"
 private const val ForegroundStateKindUnknown = "unknown"

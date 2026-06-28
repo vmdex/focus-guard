@@ -6,11 +6,23 @@ data class WatcherState(
     val foregroundAppState: ForegroundAppState = ForegroundAppState.Unknown,
     val usageDebugState: UsageDebugState = UsageDebugState(),
     val deviceInteractionState: DeviceInteractionState = DeviceInteractionState(),
+    val serviceRestoreState: ServiceRestoreState = ServiceRestoreState(),
     val alertState: AlertState = AlertState(),
     val interventionState: InterventionState = InterventionState(),
     val effectiveSettings: FocusGuardSettings = FocusGuardSettings(),
     val sessionResetTimeMillis: Long? = null
 )
+
+data class ServiceRestoreState(
+    val serviceStartReason: String? = null,
+    val serviceStartTimeMillis: Long? = null,
+    val restoredSessionKey: String? = null,
+    val restoredSessionStatus: SessionStatus? = null,
+    val restoredSessionElapsedMillis: Long? = null
+) {
+    val hadPersistedSession: Boolean
+        get() = restoredSessionKey != null
+}
 
 data class DeviceInteractionState(
     val isInteractive: Boolean = true,
