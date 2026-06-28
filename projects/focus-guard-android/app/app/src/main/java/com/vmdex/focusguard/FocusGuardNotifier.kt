@@ -13,10 +13,10 @@ class FocusGuardNotifier(private val context: Context) {
     fun createLimitChannel() {
         val channel = NotificationChannel(
             LimitNotificationChannelId,
-            "Focus Guard alerts",
-            NotificationManager.IMPORTANCE_DEFAULT
+            "Focus Guard heads-up alerts",
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Alerts when a tracked app session exceeds its limit."
+            description = "Heads-up alerts when a tracked app session exceeds its limit."
         }
 
         val notificationManager = context.getSystemService(NotificationManager::class.java)
@@ -41,7 +41,7 @@ class FocusGuardNotifier(private val context: Context) {
                     .replace("{app}", packageName)
                     .replace("{time}", formatElapsed(elapsedMillis))
             )
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .build()
 

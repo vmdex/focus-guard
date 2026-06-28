@@ -18,6 +18,7 @@ import com.vmdex.focusguard.ui.theme.FocusGuardAndroidTheme
 class MainActivity : ComponentActivity() {
     private var hasUsageAccess by mutableStateOf(false)
     private var hasOverlayAccess by mutableStateOf(false)
+    private var hasNotificationAccess by mutableStateOf(false)
     private var foregroundAppState by mutableStateOf<ForegroundAppState>(ForegroundAppState.Unknown)
     private var currentTimeMillis by mutableStateOf(System.currentTimeMillis())
     private var alertState by mutableStateOf(AlertState())
@@ -63,6 +64,7 @@ class MainActivity : ComponentActivity() {
                 FocusGuardApp(
                     hasUsageAccess = hasUsageAccess,
                     hasOverlayAccess = hasOverlayAccess,
+                    hasNotificationAccess = hasNotificationAccess,
                     foregroundAppState = foregroundAppState,
                     currentTimeMillis = currentTimeMillis,
                     alertState = alertState,
@@ -76,6 +78,7 @@ class MainActivity : ComponentActivity() {
                     selectedTrackedPackages = selectedTrackedPackages,
                     packageName = packageName,
                     onRefreshUsageData = ::refreshUsageData,
+                    onOpenNotificationSettings = ::openNotificationSettings,
                     onOpenOverlaySettings = ::openOverlaySettings,
                     onResetSession = ::resetSession,
                     onStartMonitoring = ::startMonitoring,
@@ -102,6 +105,7 @@ class MainActivity : ComponentActivity() {
         selectedTrackedPackages = trackedAppsStore.load()
         hasUsageAccess = hasUsageAccessPermission(this)
         hasOverlayAccess = hasOverlayPermission(this)
+        hasNotificationAccess = hasNotificationPermission()
 
         if (!watcherState.isRunning) {
             foregroundAppState = ForegroundAppState.Unknown
@@ -188,6 +192,21 @@ class MainActivity : ComponentActivity() {
             arrayOf(Manifest.permission.POST_NOTIFICATIONS),
             NotificationPermissionRequestCode
         )
+    }
+
+    private fun hasNotificationPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return true
+        }
+
+        return checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun openNotificationSettings() {
+        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        }
+        startActivity(intent)
     }
 
     private fun openOverlaySettings() {

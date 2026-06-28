@@ -5,7 +5,7 @@ const val DefaultGracePeriodMillis = 15 * 1000L
 const val DefaultSessionLimitMillis = 30 * 1000L
 const val DefaultAlertDelayAfterResumeMillis = 3 * 1000L
 
-const val LimitNotificationChannelId = "focus_guard_limit_alerts"
+const val LimitNotificationChannelId = "focus_guard_heads_up_alerts_v2"
 const val LimitNotificationId = 1001
 const val NotificationPermissionRequestCode = 2001
 const val WatcherNotificationChannelId = "focus_guard_monitoring"

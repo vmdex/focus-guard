@@ -47,6 +47,7 @@ import kotlin.time.Duration.Companion.seconds
 fun FocusGuardApp(
     hasUsageAccess: Boolean,
     hasOverlayAccess: Boolean,
+    hasNotificationAccess: Boolean,
     foregroundAppState: ForegroundAppState,
     currentTimeMillis: Long,
     alertState: AlertState,
@@ -60,6 +61,7 @@ fun FocusGuardApp(
     selectedTrackedPackages: Set<String>,
     packageName: String,
     onRefreshUsageData: () -> Unit,
+    onOpenNotificationSettings: () -> Unit,
     onOpenOverlaySettings: () -> Unit,
     onResetSession: () -> Unit,
     onStartMonitoring: () -> Unit,
@@ -76,6 +78,7 @@ fun FocusGuardApp(
             FocusGuardScreen.Main -> UsageAccessScreen(
                 hasUsageAccess = hasUsageAccess,
                 hasOverlayAccess = hasOverlayAccess,
+                hasNotificationAccess = hasNotificationAccess,
                 foregroundAppState = foregroundAppState,
                 currentTimeMillis = currentTimeMillis,
                 alertState = alertState,
@@ -88,6 +91,7 @@ fun FocusGuardApp(
                 selectedTrackedPackages = selectedTrackedPackages,
                 packageName = packageName,
                 onRefreshUsageData = onRefreshUsageData,
+                onOpenNotificationSettings = onOpenNotificationSettings,
                 onOpenOverlaySettings = onOpenOverlaySettings,
                 onResetSession = onResetSession,
                 onStartMonitoring = onStartMonitoring,
@@ -133,6 +137,7 @@ private enum class FocusGuardScreen {
 private fun UsageAccessScreen(
     hasUsageAccess: Boolean,
     hasOverlayAccess: Boolean,
+    hasNotificationAccess: Boolean,
     foregroundAppState: ForegroundAppState,
     currentTimeMillis: Long,
     alertState: AlertState,
@@ -145,6 +150,7 @@ private fun UsageAccessScreen(
     selectedTrackedPackages: Set<String>,
     packageName: String,
     onRefreshUsageData: () -> Unit,
+    onOpenNotificationSettings: () -> Unit,
     onOpenOverlaySettings: () -> Unit,
     onResetSession: () -> Unit,
     onStartMonitoring: () -> Unit,
@@ -197,6 +203,11 @@ private fun UsageAccessScreen(
             InterventionSettingsCard(
                 interventionSettings = interventionSettings,
                 onConfigureInterventions = onConfigureInterventions
+            )
+
+            NotificationStatusCard(
+                hasNotificationAccess = hasNotificationAccess,
+                onOpenSettings = onOpenNotificationSettings
             )
 
             TrackedAppsCard(
@@ -389,12 +400,12 @@ private fun ConfigureInterventionsScreen(
                 )
 
                 Button(onClick = { onApply(draftSettings) }) {
-                    Text(text = if (hasChanges) "✓ Save changes" else "✓")
+                    Text(text = if (hasChanges) "✓ Apply" else "✓")
                 }
             }
 
             InterventionSwitchRow(
-                label = "Android notification",
+                label = "Android heads-up notification",
                 checked = draftSettings.isNotificationEnabled,
                 onCheckedChange = { isEnabled ->
                     draftSettings = draftSettings.copy(isNotificationEnabled = isEnabled)
@@ -424,7 +435,7 @@ private fun ConfigureInterventionsScreen(
             )
 
             InterventionSwitchRow(
-                label = "Floating popup",
+                label = "Custom overlay popup",
                 checked = draftSettings.isPopupEnabled,
                 onCheckedChange = { isEnabled ->
                     draftSettings = draftSettings.copy(isPopupEnabled = isEnabled)
@@ -580,6 +591,56 @@ private fun OverlayStatusCard(
 }
 
 @Composable
+private fun NotificationStatusCard(
+    hasNotificationAccess: Boolean,
+    onOpenSettings: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "Notifications",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Permission", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = if (hasNotificationAccess) "Granted" else "Not granted",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (hasNotificationAccess) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Text(
+                text = "Heads-up notifications use Android notification permission and channel settings.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Button(
+                onClick = onOpenSettings,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "Open notification settings")
+            }
+        }
+    }
+}
+
+@Composable
 private fun MonitoringCard(
     watcherState: WatcherState,
     onStartMonitoring: () -> Unit,
@@ -722,10 +783,10 @@ private fun InterventionSettingsCard(
 ) {
     val enabledChannels = buildList {
         if (interventionSettings.isNotificationEnabled) {
-            add("Android notification")
+            add("Android heads-up notification")
         }
         if (interventionSettings.isPopupEnabled) {
-            add("Floating popup")
+            add("Custom overlay popup")
         }
     }
 
@@ -1186,6 +1247,7 @@ private fun UsageAccessScreenPreview() {
         UsageAccessScreen(
             hasUsageAccess = false,
             hasOverlayAccess = false,
+            hasNotificationAccess = false,
             foregroundAppState = ForegroundAppState.PermissionMissing,
             currentTimeMillis = System.currentTimeMillis(),
             alertState = AlertState(),
@@ -1198,6 +1260,7 @@ private fun UsageAccessScreenPreview() {
             selectedTrackedPackages = emptySet(),
             packageName = "com.vmdex.focusguard",
             onRefreshUsageData = {},
+            onOpenNotificationSettings = {},
             onOpenOverlaySettings = {},
             onResetSession = {},
             onStartMonitoring = {},
