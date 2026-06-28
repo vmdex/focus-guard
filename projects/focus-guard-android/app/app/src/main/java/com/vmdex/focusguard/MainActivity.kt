@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
     private var selectedTrackedPackages by mutableStateOf(emptySet<String>())
     private var visualVideoSettings by mutableStateOf(emptyMap<String, VisualInterventionVideoSettings>())
     private var visualVideoDraftSettings by mutableStateOf(emptyMap<String, VisualInterventionVideoSettings>())
+    private var visualBulkSettings by mutableStateOf(VisualInterventionBulkSettings())
     private lateinit var settingsStore: FocusGuardSettingsStore
     private lateinit var interventionSettingsStore: InterventionSettingsStore
     private lateinit var debugSettingsStore: DebugSettingsStore
@@ -57,6 +58,7 @@ class MainActivity : ComponentActivity() {
         debugSettings = debugSettingsStore.load()
         selectedTrackedPackages = trackedAppsStore.load()
         visualVideoSettings = loadVisualVideoSettings()
+        visualBulkSettings = visualVideoSettingsStore.loadBulk()
         launchableApps = installedAppProvider.loadLaunchableApps()
         watcherState = watcherStateStore.load()
         effectiveSettings = settings
@@ -84,6 +86,7 @@ class MainActivity : ComponentActivity() {
                     visualVideos = VisualInterventionPlaylist,
                     visualVideoSettings = visualVideoSettings,
                     visualVideoDraftSettings = visualVideoDraftSettings,
+                    visualBulkSettings = visualBulkSettings,
                     packageName = packageName,
                     onRefreshUsageData = ::refreshUsageData,
                     onOpenNotificationSettings = ::openNotificationSettings,
@@ -100,7 +103,8 @@ class MainActivity : ComponentActivity() {
                     onVisualVideoDraftSettingsChanged = ::applyVisualVideoDraftSettings,
                     onApplyVisualVideoSettings = ::applyVisualVideoSettings,
                     onDiscardVisualVideoDraft = ::discardVisualVideoDraft,
-                    onChangeVisualVideoPosition = ::changeVisualVideoPosition
+                    onChangeVisualVideoPosition = ::changeVisualVideoPosition,
+                    onApplyVisualInterventionBulkSettings = ::applyVisualInterventionBulkSettings
                 )
             }
         }
@@ -118,6 +122,7 @@ class MainActivity : ComponentActivity() {
         watcherState = watcherStateStore.load()
         selectedTrackedPackages = trackedAppsStore.load()
         visualVideoSettings = loadVisualVideoSettings()
+        visualBulkSettings = visualVideoSettingsStore.loadBulk()
         hasUsageAccess = hasUsageAccessPermission(this)
         hasOverlayAccess = hasOverlayPermission(this)
         hasNotificationAccess = hasNotificationPermission()
@@ -229,6 +234,26 @@ class MainActivity : ComponentActivity() {
 
     private fun changeVisualVideoPosition(videoId: String) {
         UsageWatcherService.editVisualPosition(this, videoId)
+    }
+
+    private fun applyVisualInterventionBulkSettings(settings: VisualInterventionBulkSettings) {
+        visualVideoSettingsStore.saveBulk(settings)
+        visualBulkSettings = settings
+        val updatedSettings = VisualInterventionPlaylist.associate { video ->
+            val existing = visualVideoSettingsStore.load(video.id)
+            val updated = existing.copy(
+                isGreenScreenEnabled = settings.isGreenScreenEnabled,
+                isSoundEnabled = settings.isSoundEnabled,
+                greenDominanceMinPercent = settings.greenDominanceMinPercent,
+                greenDominanceMaxPercent = settings.greenDominanceMaxPercent,
+                greenBrightnessMinPercent = settings.greenBrightnessMinPercent
+            )
+            visualVideoSettingsStore.save(video.id, updated)
+            video.id to updated
+        }
+        visualVideoSettings = updatedSettings
+        visualVideoDraftSettings = emptyMap()
+        UsageWatcherService.hideVisualPositionEditor(this)
     }
 
     private fun startMonitoring() {

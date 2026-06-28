@@ -10,8 +10,19 @@ data class VisualInterventionVideoSettings(
     val isGreenScreenEnabled: Boolean = true,
     val isSoundEnabled: Boolean = false,
     val zoomPercent: Int = 100,
+    val greenDominanceMinPercent: Int = 12,
+    val greenDominanceMaxPercent: Int = 42,
+    val greenBrightnessMinPercent: Int = 22,
     val positionX: Int? = null,
     val positionY: Int? = null
+)
+
+data class VisualInterventionBulkSettings(
+    val isGreenScreenEnabled: Boolean = true,
+    val isSoundEnabled: Boolean = false,
+    val greenDominanceMinPercent: Int = 12,
+    val greenDominanceMaxPercent: Int = 42,
+    val greenBrightnessMinPercent: Int = 22
 )
 
 val VisualInterventionPlaylist: List<VisualInterventionVideo> = listOf(

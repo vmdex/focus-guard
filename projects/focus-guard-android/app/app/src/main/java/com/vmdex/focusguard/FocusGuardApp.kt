@@ -1,5 +1,8 @@
 package com.vmdex.focusguard
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
@@ -42,6 +45,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.vmdex.focusguard.ui.theme.FocusGuardAndroidTheme
 import kotlin.time.Duration.Companion.seconds
+import org.json.JSONArray
+import org.json.JSONObject
 
 @Composable
 fun FocusGuardApp(
@@ -62,6 +67,7 @@ fun FocusGuardApp(
     visualVideos: List<VisualInterventionVideo>,
     visualVideoSettings: Map<String, VisualInterventionVideoSettings>,
     visualVideoDraftSettings: Map<String, VisualInterventionVideoSettings>,
+    visualBulkSettings: VisualInterventionBulkSettings,
     packageName: String,
     onRefreshUsageData: () -> Unit,
     onOpenNotificationSettings: () -> Unit,
@@ -78,7 +84,8 @@ fun FocusGuardApp(
     onVisualVideoDraftSettingsChanged: (String, VisualInterventionVideoSettings) -> Unit,
     onApplyVisualVideoSettings: (String) -> Unit,
     onDiscardVisualVideoDraft: (String) -> Unit,
-    onChangeVisualVideoPosition: (String) -> Unit
+    onChangeVisualVideoPosition: (String) -> Unit,
+    onApplyVisualInterventionBulkSettings: (VisualInterventionBulkSettings) -> Unit
 ) {
     var screen by remember { mutableStateOf<FocusGuardScreen>(FocusGuardScreen.Main) }
 
@@ -136,12 +143,25 @@ fun FocusGuardApp(
 
             FocusGuardScreen.VisualPlaylist -> VisualInterventionPlaylistScreen(
                 videos = visualVideos,
+                videoSettings = visualVideoSettings,
+                bulkSettings = visualBulkSettings,
                 onPlay = { videoId -> onPlayVisualVideo(videoId, false) },
                 onSettings = { videoId ->
                     onBeginVisualVideoSettings(videoId)
                     screen = FocusGuardScreen.VisualVideoSettings(videoId)
                 },
+                onSetupAll = { screen = FocusGuardScreen.VisualBulkSettings },
                 onBack = { screen = FocusGuardScreen.Main },
+                modifier = Modifier.padding(innerPadding)
+            )
+
+            FocusGuardScreen.VisualBulkSettings -> VisualInterventionBulkSettingsScreen(
+                initialSettings = visualBulkSettings,
+                onApply = { settings ->
+                    onApplyVisualInterventionBulkSettings(settings)
+                    screen = FocusGuardScreen.VisualPlaylist
+                },
+                onBack = { screen = FocusGuardScreen.VisualPlaylist },
                 modifier = Modifier.padding(innerPadding)
             )
 
@@ -192,6 +212,7 @@ private sealed interface FocusGuardScreen {
     data object ChooseApps : FocusGuardScreen
     data object ConfigureInterventions : FocusGuardScreen
     data object VisualPlaylist : FocusGuardScreen
+    data object VisualBulkSettings : FocusGuardScreen
     data class VisualVideoSettings(val videoId: String) : FocusGuardScreen
 }
 
@@ -628,12 +649,16 @@ private fun InterventionSwitchRow(
 @Composable
 private fun VisualInterventionPlaylistScreen(
     videos: List<VisualInterventionVideo>,
+    videoSettings: Map<String, VisualInterventionVideoSettings>,
+    bulkSettings: VisualInterventionBulkSettings,
     onPlay: (String) -> Unit,
     onSettings: (String) -> Unit,
+    onSetupAll: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     BackHandler(onBack = onBack)
+    val context = LocalContext.current
 
     Surface(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -657,6 +682,47 @@ private fun VisualInterventionPlaylistScreen(
 
                     Button(onClick = onBack) {
                         Text(text = "Back")
+                    }
+                }
+            }
+
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Bulk setup",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Button(
+                                onClick = onSetupAll,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(text = "Settings")
+                            }
+
+                            Button(
+                                onClick = {
+                                    copyVisualPlaylistJson(
+                                        context = context,
+                                        videos = videos,
+                                        videoSettings = videoSettings,
+                                        bulkSettings = bulkSettings
+                                    )
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(text = "JSON")
+                            }
+                        }
                     }
                 }
             }
@@ -758,6 +824,39 @@ private fun VisualInterventionVideoSettingsScreen(
                 }
             )
 
+            IntegerField(
+                label = "Green dominance min %",
+                value = draftSettings.greenDominanceMinPercent,
+                onValueChanged = { value ->
+                    onDraftChanged(
+                        draftSettings.copy(greenDominanceMinPercent = value.coerceIn(0, 100))
+                    )
+                },
+                enabled = draftSettings.isGreenScreenEnabled
+            )
+
+            IntegerField(
+                label = "Green dominance max %",
+                value = draftSettings.greenDominanceMaxPercent,
+                onValueChanged = { value ->
+                    onDraftChanged(
+                        draftSettings.copy(greenDominanceMaxPercent = value.coerceIn(0, 100))
+                    )
+                },
+                enabled = draftSettings.isGreenScreenEnabled
+            )
+
+            IntegerField(
+                label = "Green brightness min %",
+                value = draftSettings.greenBrightnessMinPercent,
+                onValueChanged = { value ->
+                    onDraftChanged(
+                        draftSettings.copy(greenBrightnessMinPercent = value.coerceIn(0, 100))
+                    )
+                },
+                enabled = draftSettings.isGreenScreenEnabled
+            )
+
             InterventionSwitchRow(
                 label = "Sound",
                 checked = draftSettings.isSoundEnabled,
@@ -789,6 +888,146 @@ private fun VisualInterventionVideoSettingsScreen(
 
             Text(
                 text = "Saved changes apply in the playlist. Play here uses the current draft position/settings.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+private fun copyVisualPlaylistJson(
+    context: Context,
+    videos: List<VisualInterventionVideo>,
+    videoSettings: Map<String, VisualInterventionVideoSettings>,
+    bulkSettings: VisualInterventionBulkSettings
+) {
+    val json = JSONObject()
+        .put("bulk", bulkSettings.toJson())
+        .put(
+            "videos",
+            JSONArray().apply {
+                videos.forEach { video ->
+                    put(
+                        JSONObject()
+                            .put("id", video.id)
+                            .put("title", video.title)
+                            .put(
+                                "settings",
+                                (videoSettings[video.id] ?: VisualInterventionVideoSettings()).toJson()
+                            )
+                    )
+                }
+            }
+        )
+        .toString(2)
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    clipboard.setPrimaryClip(ClipData.newPlainText("visual-intervention-playlist-settings", json))
+}
+
+private fun VisualInterventionBulkSettings.toJson(): JSONObject {
+    return JSONObject()
+        .put("greenScreenEnabled", isGreenScreenEnabled)
+        .put("soundEnabled", isSoundEnabled)
+        .put("greenDominanceMinPercent", greenDominanceMinPercent)
+        .put("greenDominanceMaxPercent", greenDominanceMaxPercent)
+        .put("greenBrightnessMinPercent", greenBrightnessMinPercent)
+}
+
+private fun VisualInterventionVideoSettings.toJson(): JSONObject {
+    return JSONObject()
+        .put("greenScreenEnabled", isGreenScreenEnabled)
+        .put("soundEnabled", isSoundEnabled)
+        .put("zoomPercent", zoomPercent)
+        .put("greenDominanceMinPercent", greenDominanceMinPercent)
+        .put("greenDominanceMaxPercent", greenDominanceMaxPercent)
+        .put("greenBrightnessMinPercent", greenBrightnessMinPercent)
+        .put("positionX", positionX)
+        .put("positionY", positionY)
+}
+
+@Composable
+private fun VisualInterventionBulkSettingsScreen(
+    initialSettings: VisualInterventionBulkSettings,
+    onApply: (VisualInterventionBulkSettings) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BackHandler(onBack = onBack)
+    var draftSettings by remember(initialSettings) {
+        mutableStateOf(initialSettings)
+    }
+    val scrollState = rememberScrollState()
+
+    Surface(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Bulk setup",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Button(onClick = { onApply(draftSettings) }) {
+                    Text(text = "Apply")
+                }
+            }
+
+            InterventionSwitchRow(
+                label = "Green screen",
+                checked = draftSettings.isGreenScreenEnabled,
+                onCheckedChange = { isEnabled ->
+                    draftSettings = draftSettings.copy(isGreenScreenEnabled = isEnabled)
+                }
+            )
+
+            InterventionSwitchRow(
+                label = "Sound",
+                checked = draftSettings.isSoundEnabled,
+                onCheckedChange = { isEnabled ->
+                    draftSettings = draftSettings.copy(isSoundEnabled = isEnabled)
+                }
+            )
+
+            IntegerField(
+                label = "Dominance min",
+                value = draftSettings.greenDominanceMinPercent,
+                onValueChanged = { value ->
+                    draftSettings = draftSettings.copy(greenDominanceMinPercent = value.coerceIn(0, 100))
+                },
+                enabled = draftSettings.isGreenScreenEnabled
+            )
+
+            IntegerField(
+                label = "Dominance max",
+                value = draftSettings.greenDominanceMaxPercent,
+                onValueChanged = { value ->
+                    draftSettings = draftSettings.copy(greenDominanceMaxPercent = value.coerceIn(0, 100))
+                },
+                enabled = draftSettings.isGreenScreenEnabled
+            )
+
+            IntegerField(
+                label = "Brightness min",
+                value = draftSettings.greenBrightnessMinPercent,
+                onValueChanged = { value ->
+                    draftSettings = draftSettings.copy(greenBrightnessMinPercent = value.coerceIn(0, 100))
+                },
+                enabled = draftSettings.isGreenScreenEnabled
+            )
+
+            Text(
+                text = "Apply overwrites these values for every video in the playlist. Zoom and position stay unchanged.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

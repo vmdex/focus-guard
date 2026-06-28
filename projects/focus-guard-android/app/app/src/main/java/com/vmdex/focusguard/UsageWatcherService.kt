@@ -696,7 +696,10 @@ class UsageWatcherService : Service() {
                 ChromaKeyVideoView(
                     context = this@UsageWatcherService,
                     resourceId = resourceId,
-                    isSoundEnabled = settings.isSoundEnabled
+                    isSoundEnabled = settings.isSoundEnabled,
+                    greenDominanceMin = settings.greenDominanceMinPercent / 100f,
+                    greenDominanceMax = settings.greenDominanceMaxPercent / 100f,
+                    greenBrightnessMin = settings.greenBrightnessMinPercent / 100f
                 )
             } else {
                 TextureView(this@UsageWatcherService).apply {

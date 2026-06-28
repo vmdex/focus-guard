@@ -17,6 +17,32 @@ class VisualInterventionVideoSettingsStore(context: Context) {
         }
     }
 
+    fun loadBulk(): VisualInterventionBulkSettings {
+        return VisualInterventionBulkSettings(
+            isGreenScreenEnabled = preferences.getBoolean(BulkGreenScreenEnabledKey, true),
+            isSoundEnabled = preferences.getBoolean(BulkSoundEnabledKey, false),
+            greenDominanceMinPercent = preferences
+                .getInt(BulkGreenDominanceMinPercentKey, 12)
+                .coerceIn(0, 100),
+            greenDominanceMaxPercent = preferences
+                .getInt(BulkGreenDominanceMaxPercentKey, 42)
+                .coerceIn(0, 100),
+            greenBrightnessMinPercent = preferences
+                .getInt(BulkGreenBrightnessMinPercentKey, 22)
+                .coerceIn(0, 100)
+        )
+    }
+
+    fun saveBulk(settings: VisualInterventionBulkSettings) {
+        preferences.edit {
+            putBoolean(BulkGreenScreenEnabledKey, settings.isGreenScreenEnabled)
+            putBoolean(BulkSoundEnabledKey, settings.isSoundEnabled)
+            putInt(BulkGreenDominanceMinPercentKey, settings.greenDominanceMinPercent.coerceIn(0, 100))
+            putInt(BulkGreenDominanceMaxPercentKey, settings.greenDominanceMaxPercent.coerceIn(0, 100))
+            putInt(BulkGreenBrightnessMinPercentKey, settings.greenBrightnessMinPercent.coerceIn(0, 100))
+        }
+    }
+
     fun beginDraft(videoId: String, settings: VisualInterventionVideoSettings = load(videoId)) {
         draftPreferences.edit {
             write(videoId, settings)
@@ -38,6 +64,9 @@ class VisualInterventionVideoSettingsStore(context: Context) {
             remove(key(videoId, GreenScreenEnabledSuffix))
             remove(key(videoId, SoundEnabledSuffix))
             remove(key(videoId, ZoomPercentSuffix))
+            remove(key(videoId, GreenDominanceMinPercentSuffix))
+            remove(key(videoId, GreenDominanceMaxPercentSuffix))
+            remove(key(videoId, GreenBrightnessMinPercentSuffix))
             remove(key(videoId, PositionXSuffix))
             remove(key(videoId, PositionYSuffix))
         }
@@ -53,6 +82,15 @@ class VisualInterventionVideoSettingsStore(context: Context) {
             isGreenScreenEnabled = source.getBoolean(key(videoId, GreenScreenEnabledSuffix), true),
             isSoundEnabled = source.getBoolean(key(videoId, SoundEnabledSuffix), false),
             zoomPercent = source.getInt(key(videoId, ZoomPercentSuffix), 100).coerceAtLeast(1),
+            greenDominanceMinPercent = source
+                .getInt(key(videoId, GreenDominanceMinPercentSuffix), 12)
+                .coerceIn(0, 100),
+            greenDominanceMaxPercent = source
+                .getInt(key(videoId, GreenDominanceMaxPercentSuffix), 42)
+                .coerceIn(0, 100),
+            greenBrightnessMinPercent = source
+                .getInt(key(videoId, GreenBrightnessMinPercentSuffix), 22)
+                .coerceIn(0, 100),
             positionX = if (hasPositionX) source.getInt(key(videoId, PositionXSuffix), 0) else null,
             positionY = if (hasPositionY) source.getInt(key(videoId, PositionYSuffix), 0) else null
         )
@@ -65,6 +103,18 @@ class VisualInterventionVideoSettingsStore(context: Context) {
         putBoolean(key(videoId, GreenScreenEnabledSuffix), settings.isGreenScreenEnabled)
         putBoolean(key(videoId, SoundEnabledSuffix), settings.isSoundEnabled)
         putInt(key(videoId, ZoomPercentSuffix), settings.zoomPercent.coerceAtLeast(1))
+        putInt(
+            key(videoId, GreenDominanceMinPercentSuffix),
+            settings.greenDominanceMinPercent.coerceIn(0, 100)
+        )
+        putInt(
+            key(videoId, GreenDominanceMaxPercentSuffix),
+            settings.greenDominanceMaxPercent.coerceIn(0, 100)
+        )
+        putInt(
+            key(videoId, GreenBrightnessMinPercentSuffix),
+            settings.greenBrightnessMinPercent.coerceIn(0, 100)
+        )
         settings.positionX?.let { putInt(key(videoId, PositionXSuffix), it) }
             ?: remove(key(videoId, PositionXSuffix))
         settings.positionY?.let { putInt(key(videoId, PositionYSuffix), it) }
@@ -79,5 +129,13 @@ private const val DraftStoreName = "focus_guard_visual_intervention_video_draft_
 private const val GreenScreenEnabledSuffix = "green_screen_enabled"
 private const val SoundEnabledSuffix = "sound_enabled"
 private const val ZoomPercentSuffix = "zoom_percent"
+private const val GreenDominanceMinPercentSuffix = "green_dominance_min_percent"
+private const val GreenDominanceMaxPercentSuffix = "green_dominance_max_percent"
+private const val GreenBrightnessMinPercentSuffix = "green_brightness_min_percent"
 private const val PositionXSuffix = "position_x"
 private const val PositionYSuffix = "position_y"
+private const val BulkGreenScreenEnabledKey = "bulk.green_screen_enabled"
+private const val BulkSoundEnabledKey = "bulk.sound_enabled"
+private const val BulkGreenDominanceMinPercentKey = "bulk.green_dominance_min_percent"
+private const val BulkGreenDominanceMaxPercentKey = "bulk.green_dominance_max_percent"
+private const val BulkGreenBrightnessMinPercentKey = "bulk.green_brightness_min_percent"

@@ -15,9 +15,19 @@ import javax.microedition.khronos.opengles.GL10
 class ChromaKeyVideoView(
     context: Context,
     private val resourceId: Int,
-    private val isSoundEnabled: Boolean
+    private val isSoundEnabled: Boolean,
+    private val greenDominanceMin: Float,
+    private val greenDominanceMax: Float,
+    private val greenBrightnessMin: Float
 ) : GLSurfaceView(context) {
-    private val renderer = ChromaKeyVideoRenderer(context, resourceId, isSoundEnabled)
+    private val renderer = ChromaKeyVideoRenderer(
+        context = context,
+        resourceId = resourceId,
+        isSoundEnabled = isSoundEnabled,
+        greenDominanceMin = greenDominanceMin,
+        greenDominanceMax = greenDominanceMax,
+        greenBrightnessMin = greenBrightnessMin
+    )
 
     init {
         setEGLContextClientVersion(2)
@@ -39,7 +49,10 @@ class ChromaKeyVideoView(
 private class ChromaKeyVideoRenderer(
     private val context: Context,
     private val resourceId: Int,
-    private val isSoundEnabled: Boolean
+    private val isSoundEnabled: Boolean,
+    private val greenDominanceMin: Float,
+    private val greenDominanceMax: Float,
+    private val greenBrightnessMin: Float
 ) : GLSurfaceView.Renderer {
     private var program = 0
     private var textureId = 0
@@ -49,10 +62,10 @@ private class ChromaKeyVideoRenderer(
     private val transformMatrix = FloatArray(16)
 
     private val vertices = floatArrayOf(
-        -1f, -1f, 0f, 1f,
-        1f, -1f, 1f, 1f,
-        -1f, 1f, 0f, 0f,
-        1f, 1f, 1f, 0f
+        -1f, -1f, 0f, 0f,
+        1f, -1f, 1f, 0f,
+        -1f, 1f, 0f, 1f,
+        1f, 1f, 1f, 1f
     )
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
@@ -90,6 +103,9 @@ private class ChromaKeyVideoRenderer(
         val positionHandle = GLES20.glGetAttribLocation(program, "aPosition")
         val textureHandle = GLES20.glGetAttribLocation(program, "aTexCoord")
         val matrixHandle = GLES20.glGetUniformLocation(program, "uTexMatrix")
+        val dominanceMinHandle = GLES20.glGetUniformLocation(program, "uGreenDominanceMin")
+        val dominanceMaxHandle = GLES20.glGetUniformLocation(program, "uGreenDominanceMax")
+        val brightnessMinHandle = GLES20.glGetUniformLocation(program, "uGreenBrightnessMin")
 
         vertexBuffer.position(0)
         GLES20.glEnableVertexAttribArray(positionHandle)
@@ -100,6 +116,9 @@ private class ChromaKeyVideoRenderer(
         GLES20.glVertexAttribPointer(textureHandle, 2, GLES20.GL_FLOAT, false, 4 * Float.SIZE_BYTES, vertexBuffer)
 
         GLES20.glUniformMatrix4fv(matrixHandle, 1, false, transformMatrix, 0)
+        GLES20.glUniform1f(dominanceMinHandle, greenDominanceMin)
+        GLES20.glUniform1f(dominanceMaxHandle, greenDominanceMax.coerceAtLeast(greenDominanceMin + 0.01f))
+        GLES20.glUniform1f(brightnessMinHandle, greenBrightnessMin)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId)
 
@@ -195,13 +214,16 @@ private const val FragmentShader = """
 precision mediump float;
 
 uniform samplerExternalOES sTexture;
+uniform float uGreenDominanceMin;
+uniform float uGreenDominanceMax;
+uniform float uGreenBrightnessMin;
 varying vec2 vTexCoord;
 
 void main() {
     vec4 color = texture2D(sTexture, vTexCoord);
     float greenDominance = color.g - max(color.r, color.b);
-    float greenStrength = smoothstep(0.12, 0.42, greenDominance);
-    float greenBrightness = smoothstep(0.22, 0.55, color.g);
+    float greenStrength = smoothstep(uGreenDominanceMin, uGreenDominanceMax, greenDominance);
+    float greenBrightness = smoothstep(uGreenBrightnessMin, 0.95, color.g);
     float alpha = 1.0 - (greenStrength * greenBrightness);
     gl_FragColor = vec4(color.rgb, color.a * alpha);
 }
