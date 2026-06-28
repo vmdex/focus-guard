@@ -140,21 +140,22 @@ class UsageWatcherService : Service() {
     }
 
     private fun tickDelayMillis(state: WatcherState): Long {
+        val debugSettings = debugSettingsStore.load()
         if (state.deviceInteractionState.isScreenLocked) {
-            return WatcherScreenLockedTickMillis
+            return debugSettings.screenLockedTickMillis
         }
 
         return when (val foregroundAppState = state.foregroundAppState) {
             is ForegroundAppState.Detected -> when (foregroundAppState.sessionStatus) {
-                SessionStatus.Active -> WatcherTickMillis
-                SessionStatus.GracePeriod -> WatcherGraceTickMillis
-                SessionStatus.PausedByScreenLock -> WatcherScreenLockedTickMillis
-                SessionStatus.Ended -> WatcherIdleTickMillis
+                SessionStatus.Active -> debugSettings.activeTickMillis
+                SessionStatus.GracePeriod -> debugSettings.graceTickMillis
+                SessionStatus.PausedByScreenLock -> debugSettings.screenLockedTickMillis
+                SessionStatus.Ended -> debugSettings.idleTickMillis
             }
 
             ForegroundAppState.PermissionMissing,
             ForegroundAppState.Unknown,
-            is ForegroundAppState.Untracked -> WatcherIdleTickMillis
+            is ForegroundAppState.Untracked -> debugSettings.idleTickMillis
         }
     }
 

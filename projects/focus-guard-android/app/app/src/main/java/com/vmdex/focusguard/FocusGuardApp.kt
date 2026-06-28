@@ -197,7 +197,9 @@ private fun UsageAccessScreen(
 
             FocusSettingsCard(
                 settings = settings,
-                onSettingsChanged = onSettingsChanged
+                debugSettings = debugSettings,
+                onSettingsChanged = onSettingsChanged,
+                onDebugSettingsChanged = onDebugSettingsChanged
             )
 
             InterventionSettingsCard(
@@ -725,21 +727,37 @@ private fun DevSettingsCard(
                 )
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(text = "Show session timer", style = MaterialTheme.typography.bodyLarge)
-                Switch(
-                    checked = debugSettings.isSessionTimerEnabled,
-                    onCheckedChange = { isEnabled ->
-                        onDebugSettingsChanged(
-                            debugSettings.copy(isSessionTimerEnabled = isEnabled)
-                        )
-                    }
-                )
-            }
+            SecondsField(
+                label = "Active tick seconds",
+                value = debugSettings.activeTickSeconds,
+                onValueChanged = { seconds ->
+                    onDebugSettingsChanged(debugSettings.copy(activeTickMillis = seconds * 1000L))
+                }
+            )
+
+            SecondsField(
+                label = "Grace tick seconds",
+                value = debugSettings.graceTickSeconds,
+                onValueChanged = { seconds ->
+                    onDebugSettingsChanged(debugSettings.copy(graceTickMillis = seconds * 1000L))
+                }
+            )
+
+            SecondsField(
+                label = "Idle tick seconds",
+                value = debugSettings.idleTickSeconds,
+                onValueChanged = { seconds ->
+                    onDebugSettingsChanged(debugSettings.copy(idleTickMillis = seconds * 1000L))
+                }
+            )
+
+            SecondsField(
+                label = "Locked tick seconds",
+                value = debugSettings.screenLockedTickSeconds,
+                onValueChanged = { seconds ->
+                    onDebugSettingsChanged(debugSettings.copy(screenLockedTickMillis = seconds * 1000L))
+                }
+            )
         }
     }
 }
@@ -829,7 +847,9 @@ private fun InterventionSettingsCard(
 @Composable
 private fun FocusSettingsCard(
     settings: FocusGuardSettings,
-    onSettingsChanged: (FocusGuardSettings) -> Unit
+    debugSettings: DebugSettings,
+    onSettingsChanged: (FocusGuardSettings) -> Unit,
+    onDebugSettingsChanged: (DebugSettings) -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -841,6 +861,22 @@ private fun FocusSettingsCard(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Show session timer", style = MaterialTheme.typography.bodyLarge)
+                Switch(
+                    checked = debugSettings.isSessionTimerEnabled,
+                    onCheckedChange = { isEnabled ->
+                        onDebugSettingsChanged(
+                            debugSettings.copy(isSessionTimerEnabled = isEnabled)
+                        )
+                    }
+                )
+            }
 
             SecondsField(
                 label = "Grace period seconds",
