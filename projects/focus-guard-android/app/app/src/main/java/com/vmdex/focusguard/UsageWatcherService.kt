@@ -15,6 +15,7 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.SurfaceTexture
 import android.graphics.drawable.GradientDrawable
+import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
@@ -438,11 +439,11 @@ class UsageWatcherService : Service() {
 
         removeVisualIntervention()
 
-        val size = visualInterventionVideoSizePx(settings.zoomPercent)
+        val size = visualInterventionVideoSizePx(resourceId, settings.zoomPercent)
         val container = createVisualInterventionVideoView(
             resourceId = resourceId,
             settings = settings,
-            sizePx = size
+            size = size
         )
         val params = createVisualInterventionVideoLayoutParams(size, settings)
         visualInterventionView = container
@@ -467,8 +468,9 @@ class UsageWatcherService : Service() {
 
         removeVisualPositionEditor()
 
+        val video = visualInterventionVideoById(videoId) ?: return
         val settings = visualVideoSettingsStore.loadDraft(videoId)
-        val size = visualInterventionVideoSizePx(settings.zoomPercent)
+        val size = visualInterventionVideoSizePx(video.resourceId, settings.zoomPercent)
         val params = createVisualInterventionVideoLayoutParams(size, settings)
         val view = createVisualPositionEditorView(videoId)
         visualPositionEditorVideoId = videoId
@@ -687,7 +689,7 @@ class UsageWatcherService : Service() {
     private fun createVisualInterventionVideoView(
         resourceId: Int,
         settings: VisualInterventionVideoSettings,
-        sizePx: Int
+        size: VideoOverlaySize
     ): FrameLayout {
         return FrameLayout(this).apply {
             val videoView = TextureView(this@UsageWatcherService).apply {
@@ -698,7 +700,7 @@ class UsageWatcherService : Service() {
             }
             addView(
                 videoView,
-                FrameLayout.LayoutParams(sizePx, sizePx, Gravity.CENTER)
+                FrameLayout.LayoutParams(size.widthPx, size.heightPx, Gravity.CENTER)
             )
         }
     }
@@ -787,19 +789,19 @@ class UsageWatcherService : Service() {
     }
 
     private fun createVisualInterventionVideoLayoutParams(
-        size: Int,
+        size: VideoOverlaySize,
         settings: VisualInterventionVideoSettings
     ): WindowManager.LayoutParams {
         return WindowManager.LayoutParams(
-            size,
-            size,
+            size.widthPx,
+            size.heightPx,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = settings.positionX ?: ((resources.displayMetrics.widthPixels - size) / 2).coerceAtLeast(0)
-            y = settings.positionY ?: ((resources.displayMetrics.heightPixels - size) / 2).coerceAtLeast(0)
+            x = settings.positionX ?: ((resources.displayMetrics.widthPixels - size.widthPx) / 2).coerceAtLeast(0)
+            y = settings.positionY ?: ((resources.displayMetrics.heightPixels - size.heightPx) / 2).coerceAtLeast(0)
         }
     }
 
@@ -1100,6 +1102,51 @@ class UsageWatcherService : Service() {
         return (dpToPx(260) * zoomPercent.coerceAtLeast(1)) / 100
     }
 
+    private fun visualInterventionVideoSizePx(
+        resourceId: Int,
+        zoomPercent: Int
+    ): VideoOverlaySize {
+        val baseMaxPx = visualInterventionVideoSizePx(zoomPercent)
+        val intrinsicSize = readRawVideoSize(resourceId)
+        val width = intrinsicSize.widthPx.coerceAtLeast(1)
+        val height = intrinsicSize.heightPx.coerceAtLeast(1)
+
+        return if (width >= height) {
+            VideoOverlaySize(
+                widthPx = baseMaxPx,
+                heightPx = (baseMaxPx * height / width).coerceAtLeast(1)
+            )
+        } else {
+            VideoOverlaySize(
+                widthPx = (baseMaxPx * width / height).coerceAtLeast(1),
+                heightPx = baseMaxPx
+            )
+        }
+    }
+
+    private fun readRawVideoSize(resourceId: Int): VideoOverlaySize {
+        return runCatching {
+            val retriever = MediaMetadataRetriever()
+            resources.openRawResourceFd(resourceId).use { descriptor ->
+                retriever.setDataSource(
+                    descriptor.fileDescriptor,
+                    descriptor.startOffset,
+                    descriptor.length
+                )
+            }
+            val width = retriever
+                .extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+                ?.toIntOrNull()
+                ?: 1
+            val height = retriever
+                .extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                ?.toIntOrNull()
+                ?: 1
+            retriever.release()
+            VideoOverlaySize(widthPx = width, heightPx = height)
+        }.getOrDefault(VideoOverlaySize(widthPx = 1, heightPx = 1))
+    }
+
     private fun dpToPx(dp: Int): Int {
         return (dp * resources.displayMetrics.density).toInt().coerceAtLeast(0)
     }
@@ -1187,6 +1234,11 @@ class UsageWatcherService : Service() {
         }
     }
 }
+
+private data class VideoOverlaySize(
+    val widthPx: Int,
+    val heightPx: Int
+)
 
 private class FloatingDebugTextView(context: Context) : TextView(context) {
     override fun performClick(): Boolean {
