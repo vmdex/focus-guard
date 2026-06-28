@@ -59,6 +59,9 @@ fun FocusGuardApp(
     watcherState: WatcherState,
     launchableApps: List<LaunchableApp>,
     selectedTrackedPackages: Set<String>,
+    visualVideos: List<VisualInterventionVideo>,
+    visualVideoSettings: Map<String, VisualInterventionVideoSettings>,
+    visualVideoDraftSettings: Map<String, VisualInterventionVideoSettings>,
     packageName: String,
     onRefreshUsageData: () -> Unit,
     onOpenNotificationSettings: () -> Unit,
@@ -69,12 +72,18 @@ fun FocusGuardApp(
     onTrackedAppsChanged: (Set<String>) -> Unit,
     onInterventionSettingsChanged: (InterventionSettings) -> Unit,
     onDebugSettingsChanged: (DebugSettings) -> Unit,
-    onSettingsChanged: (FocusGuardSettings) -> Unit
+    onSettingsChanged: (FocusGuardSettings) -> Unit,
+    onPlayVisualVideo: (String, Boolean) -> Unit,
+    onBeginVisualVideoSettings: (String) -> Unit,
+    onVisualVideoDraftSettingsChanged: (String, VisualInterventionVideoSettings) -> Unit,
+    onApplyVisualVideoSettings: (String) -> Unit,
+    onDiscardVisualVideoDraft: (String) -> Unit,
+    onChangeVisualVideoPosition: (String) -> Unit
 ) {
-    var screen by rememberSaveable { mutableStateOf(FocusGuardScreen.Main) }
+    var screen by remember { mutableStateOf<FocusGuardScreen>(FocusGuardScreen.Main) }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-        when (screen) {
+        when (val currentScreen = screen) {
             FocusGuardScreen.Main -> UsageAccessScreen(
                 hasUsageAccess = hasUsageAccess,
                 hasOverlayAccess = hasOverlayAccess,
@@ -98,6 +107,7 @@ fun FocusGuardApp(
                 onStopMonitoring = onStopMonitoring,
                 onChooseApps = { screen = FocusGuardScreen.ChooseApps },
                 onConfigureInterventions = { screen = FocusGuardScreen.ConfigureInterventions },
+                onConfigureVisualPlaylist = { screen = FocusGuardScreen.VisualPlaylist },
                 onDebugSettingsChanged = onDebugSettingsChanged,
                 onSettingsChanged = onSettingsChanged,
                 modifier = Modifier.padding(innerPadding)
@@ -123,14 +133,66 @@ fun FocusGuardApp(
                 onBack = { screen = FocusGuardScreen.Main },
                 modifier = Modifier.padding(innerPadding)
             )
+
+            FocusGuardScreen.VisualPlaylist -> VisualInterventionPlaylistScreen(
+                videos = visualVideos,
+                onPlay = { videoId -> onPlayVisualVideo(videoId, false) },
+                onSettings = { videoId ->
+                    onBeginVisualVideoSettings(videoId)
+                    screen = FocusGuardScreen.VisualVideoSettings(videoId)
+                },
+                onBack = { screen = FocusGuardScreen.Main },
+                modifier = Modifier.padding(innerPadding)
+            )
+
+            is FocusGuardScreen.VisualVideoSettings -> {
+                val videoId = currentScreen.videoId
+                val video = visualVideos.firstOrNull { it.id == videoId }
+                if (video == null) {
+                    Surface(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Text(text = "Video not found", style = MaterialTheme.typography.headlineSmall)
+                            Button(onClick = { screen = FocusGuardScreen.VisualPlaylist }) {
+                                Text(text = "Back")
+                            }
+                        }
+                    }
+                } else {
+                    VisualInterventionVideoSettingsScreen(
+                        video = video,
+                        savedSettings = visualVideoSettings[videoId] ?: VisualInterventionVideoSettings(),
+                        draftSettings = visualVideoDraftSettings[videoId] ?: visualVideoSettings[videoId]
+                            ?: VisualInterventionVideoSettings(),
+                        onDraftChanged = { settings ->
+                            onVisualVideoDraftSettingsChanged(videoId, settings)
+                        },
+                        onApply = {
+                            onApplyVisualVideoSettings(videoId)
+                            screen = FocusGuardScreen.VisualPlaylist
+                        },
+                        onPlay = { onPlayVisualVideo(videoId, true) },
+                        onChangePosition = { onChangeVisualVideoPosition(videoId) },
+                        onBack = {
+                            onDiscardVisualVideoDraft(videoId)
+                            screen = FocusGuardScreen.VisualPlaylist
+                        },
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
+            }
         }
     }
 }
 
-private enum class FocusGuardScreen {
-    Main,
-    ChooseApps,
-    ConfigureInterventions
+private sealed interface FocusGuardScreen {
+    data object Main : FocusGuardScreen
+    data object ChooseApps : FocusGuardScreen
+    data object ConfigureInterventions : FocusGuardScreen
+    data object VisualPlaylist : FocusGuardScreen
+    data class VisualVideoSettings(val videoId: String) : FocusGuardScreen
 }
 
 @Composable
@@ -157,6 +219,7 @@ private fun UsageAccessScreen(
     onStopMonitoring: () -> Unit,
     onChooseApps: () -> Unit,
     onConfigureInterventions: () -> Unit,
+    onConfigureVisualPlaylist: () -> Unit,
     onDebugSettingsChanged: (DebugSettings) -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit,
     modifier: Modifier = Modifier
@@ -203,6 +266,10 @@ private fun UsageAccessScreen(
             InterventionSettingsCard(
                 interventionSettings = interventionSettings,
                 onConfigureInterventions = onConfigureInterventions
+            )
+
+            VisualInterventionPlaylistCard(
+                onConfigure = onConfigureVisualPlaylist
             )
 
             NotificationStatusCard(
@@ -555,6 +622,177 @@ private fun InterventionSwitchRow(
             onCheckedChange = onCheckedChange,
             enabled = enabled
         )
+    }
+}
+
+@Composable
+private fun VisualInterventionPlaylistScreen(
+    videos: List<VisualInterventionVideo>,
+    onPlay: (String) -> Unit,
+    onSettings: (String) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BackHandler(onBack = onBack)
+
+    Surface(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Visual intervention playlist",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Button(onClick = onBack) {
+                        Text(text = "Back")
+                    }
+                }
+            }
+
+            items(videos, key = { it.id }) { video ->
+                VisualInterventionVideoRow(
+                    video = video,
+                    onPlay = { onPlay(video.id) },
+                    onSettings = { onSettings(video.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VisualInterventionVideoRow(
+    video: VisualInterventionVideo,
+    onPlay: () -> Unit,
+    onSettings: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = video.title,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+
+            Button(onClick = onPlay) {
+                Text(text = "▶")
+            }
+
+            Button(onClick = onSettings) {
+                Text(text = "⚙")
+            }
+        }
+    }
+}
+
+@Composable
+private fun VisualInterventionVideoSettingsScreen(
+    video: VisualInterventionVideo,
+    savedSettings: VisualInterventionVideoSettings,
+    draftSettings: VisualInterventionVideoSettings,
+    onDraftChanged: (VisualInterventionVideoSettings) -> Unit,
+    onApply: () -> Unit,
+    onPlay: () -> Unit,
+    onChangePosition: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BackHandler(onBack = onBack)
+    val scrollState = rememberScrollState()
+    val hasChanges = draftSettings != savedSettings
+
+    Surface(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = video.title,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = onPlay,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = "Play")
+                }
+
+                Button(
+                    onClick = onApply,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = if (hasChanges) "Apply" else "Apply")
+                }
+            }
+
+            InterventionSwitchRow(
+                label = "Green screen",
+                checked = draftSettings.isGreenScreenEnabled,
+                onCheckedChange = { isEnabled ->
+                    onDraftChanged(draftSettings.copy(isGreenScreenEnabled = isEnabled))
+                }
+            )
+
+            InterventionSwitchRow(
+                label = "Sound",
+                checked = draftSettings.isSoundEnabled,
+                onCheckedChange = { isEnabled ->
+                    onDraftChanged(draftSettings.copy(isSoundEnabled = isEnabled))
+                }
+            )
+
+            IntegerField(
+                label = "Zoom percent",
+                value = draftSettings.zoomPercent,
+                onValueChanged = { value ->
+                    onDraftChanged(draftSettings.copy(zoomPercent = value.coerceAtLeast(1)))
+                }
+            )
+
+            Button(
+                onClick = onChangePosition,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "Change position")
+            }
+
+            Text(
+                text = "Position: ${draftSettings.positionX ?: "-"}, ${draftSettings.positionY ?: "-"}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text(
+                text = "Saved changes apply in the playlist. Play here uses the current draft position/settings.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -960,6 +1198,31 @@ private fun InterventionSettingsCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(text = "Configure Visual intervention")
+            }
+        }
+    }
+}
+
+@Composable
+private fun VisualInterventionPlaylistCard(
+    onConfigure: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "Visual intervention playlist",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Button(
+                onClick = onConfigure,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "Configure")
             }
         }
     }
@@ -1458,6 +1721,7 @@ private fun UsageAccessScreenPreview() {
             onStopMonitoring = {},
             onChooseApps = {},
             onConfigureInterventions = {},
+            onConfigureVisualPlaylist = {},
             onDebugSettingsChanged = {},
             onSettingsChanged = {}
         )

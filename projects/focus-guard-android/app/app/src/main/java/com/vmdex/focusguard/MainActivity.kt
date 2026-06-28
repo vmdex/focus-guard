@@ -29,12 +29,15 @@ class MainActivity : ComponentActivity() {
     private var watcherState by mutableStateOf(WatcherState())
     private var launchableApps by mutableStateOf(emptyList<LaunchableApp>())
     private var selectedTrackedPackages by mutableStateOf(emptySet<String>())
+    private var visualVideoSettings by mutableStateOf(emptyMap<String, VisualInterventionVideoSettings>())
+    private var visualVideoDraftSettings by mutableStateOf(emptyMap<String, VisualInterventionVideoSettings>())
     private lateinit var settingsStore: FocusGuardSettingsStore
     private lateinit var interventionSettingsStore: InterventionSettingsStore
     private lateinit var debugSettingsStore: DebugSettingsStore
     private lateinit var watcherStateStore: WatcherStateStore
     private lateinit var sessionStateStore: SessionStateStore
     private lateinit var trackedAppsStore: TrackedAppsStore
+    private lateinit var visualVideoSettingsStore: VisualInterventionVideoSettingsStore
     private lateinit var installedAppProvider: InstalledAppProvider
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,11 +50,13 @@ class MainActivity : ComponentActivity() {
         watcherStateStore = WatcherStateStore(this)
         sessionStateStore = SessionStateStore(this)
         trackedAppsStore = TrackedAppsStore(this)
+        visualVideoSettingsStore = VisualInterventionVideoSettingsStore(this)
         installedAppProvider = InstalledAppProvider(this)
         settings = settingsStore.load()
         interventionSettings = interventionSettingsStore.load()
         debugSettings = debugSettingsStore.load()
         selectedTrackedPackages = trackedAppsStore.load()
+        visualVideoSettings = loadVisualVideoSettings()
         launchableApps = installedAppProvider.loadLaunchableApps()
         watcherState = watcherStateStore.load()
         effectiveSettings = settings
@@ -76,6 +81,9 @@ class MainActivity : ComponentActivity() {
                     watcherState = watcherState,
                     launchableApps = launchableApps,
                     selectedTrackedPackages = selectedTrackedPackages,
+                    visualVideos = VisualInterventionPlaylist,
+                    visualVideoSettings = visualVideoSettings,
+                    visualVideoDraftSettings = visualVideoDraftSettings,
                     packageName = packageName,
                     onRefreshUsageData = ::refreshUsageData,
                     onOpenNotificationSettings = ::openNotificationSettings,
@@ -86,7 +94,13 @@ class MainActivity : ComponentActivity() {
                     onTrackedAppsChanged = ::applyTrackedApps,
                     onInterventionSettingsChanged = ::applyInterventionSettings,
                     onDebugSettingsChanged = ::applyDebugSettings,
-                    onSettingsChanged = ::applySettings
+                    onSettingsChanged = ::applySettings,
+                    onPlayVisualVideo = ::playVisualVideo,
+                    onBeginVisualVideoSettings = ::beginVisualVideoSettings,
+                    onVisualVideoDraftSettingsChanged = ::applyVisualVideoDraftSettings,
+                    onApplyVisualVideoSettings = ::applyVisualVideoSettings,
+                    onDiscardVisualVideoDraft = ::discardVisualVideoDraft,
+                    onChangeVisualVideoPosition = ::changeVisualVideoPosition
                 )
             }
         }
@@ -103,6 +117,7 @@ class MainActivity : ComponentActivity() {
         currentTimeMillis = System.currentTimeMillis()
         watcherState = watcherStateStore.load()
         selectedTrackedPackages = trackedAppsStore.load()
+        visualVideoSettings = loadVisualVideoSettings()
         hasUsageAccess = hasUsageAccessPermission(this)
         hasOverlayAccess = hasOverlayPermission(this)
         hasNotificationAccess = hasNotificationPermission()
@@ -171,6 +186,49 @@ class MainActivity : ComponentActivity() {
         selectedTrackedPackages = packageNames
         trackedAppsStore.save(packageNames)
         refreshUsageData()
+    }
+
+    private fun loadVisualVideoSettings(): Map<String, VisualInterventionVideoSettings> {
+        return VisualInterventionPlaylist.associate { video ->
+            video.id to visualVideoSettingsStore.load(video.id)
+        }
+    }
+
+    private fun playVisualVideo(videoId: String, useDraftSettings: Boolean) {
+        UsageWatcherService.playVisualPreview(this, videoId, useDraftSettings)
+    }
+
+    private fun beginVisualVideoSettings(videoId: String) {
+        visualVideoSettingsStore.beginDraft(videoId)
+        visualVideoDraftSettings = visualVideoDraftSettings + (
+            videoId to visualVideoSettingsStore.loadDraft(videoId)
+        )
+    }
+
+    private fun applyVisualVideoDraftSettings(
+        videoId: String,
+        settings: VisualInterventionVideoSettings
+    ) {
+        visualVideoDraftSettings = visualVideoDraftSettings + (videoId to settings)
+        visualVideoSettingsStore.saveDraft(videoId, settings)
+    }
+
+    private fun applyVisualVideoSettings(videoId: String) {
+        val draftSettings = visualVideoSettingsStore.loadDraft(videoId)
+        visualVideoSettingsStore.save(videoId, draftSettings)
+        visualVideoSettings = visualVideoSettings + (videoId to draftSettings)
+        visualVideoDraftSettings = visualVideoDraftSettings + (videoId to draftSettings)
+        UsageWatcherService.hideVisualPositionEditor(this)
+    }
+
+    private fun discardVisualVideoDraft(videoId: String) {
+        visualVideoSettingsStore.clearDraft(videoId)
+        visualVideoDraftSettings = visualVideoDraftSettings - videoId
+        UsageWatcherService.hideVisualPositionEditor(this)
+    }
+
+    private fun changeVisualVideoPosition(videoId: String) {
+        UsageWatcherService.editVisualPosition(this, videoId)
     }
 
     private fun startMonitoring() {

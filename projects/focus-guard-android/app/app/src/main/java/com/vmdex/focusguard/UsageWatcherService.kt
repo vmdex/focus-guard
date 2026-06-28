@@ -41,6 +41,7 @@ class UsageWatcherService : Service() {
     private lateinit var debugSettingsStore: DebugSettingsStore
     private lateinit var overlayWindowPositionStore: OverlayWindowPositionStore
     private lateinit var trackedAppsStore: TrackedAppsStore
+    private lateinit var visualVideoSettingsStore: VisualInterventionVideoSettingsStore
     private lateinit var notifier: FocusGuardNotifier
     private lateinit var windowManager: WindowManager
     private var effectiveSettings = FocusGuardSettings()
@@ -57,6 +58,9 @@ class UsageWatcherService : Service() {
     private var visualInterventionLayoutParams: WindowManager.LayoutParams? = null
     private var hideVisualInterventionRunnable: Runnable? = null
     private var visualInterventionMediaPlayer: MediaPlayer? = null
+    private var visualPositionEditorView: View? = null
+    private var visualPositionEditorLayoutParams: WindowManager.LayoutParams? = null
+    private var visualPositionEditorVideoId: String? = null
     private var isScreenEventReceiverRegistered = false
     private var serviceRestoreState = ServiceRestoreState()
 
@@ -91,6 +95,7 @@ class UsageWatcherService : Service() {
         debugSettingsStore = DebugSettingsStore(this)
         overlayWindowPositionStore = OverlayWindowPositionStore(this)
         trackedAppsStore = TrackedAppsStore(this)
+        visualVideoSettingsStore = VisualInterventionVideoSettingsStore(this)
         notifier = FocusGuardNotifier(this)
         windowManager = getSystemService(WindowManager::class.java)
         val savedState = stateStore.load()
@@ -104,6 +109,21 @@ class UsageWatcherService : Service() {
         if (intent?.action == ActionStop) {
             stopMonitoring(markNotRunning = true)
             stopSelf()
+            return START_NOT_STICKY
+        }
+
+        if (intent?.action == ActionPlayVisualPreview) {
+            playVisualInterventionPreview(intent)
+            return START_NOT_STICKY
+        }
+
+        if (intent?.action == ActionEditVisualPosition) {
+            showVisualPositionEditor(intent)
+            return START_NOT_STICKY
+        }
+
+        if (intent?.action == ActionHideVisualPositionEditor) {
+            removeVisualPositionEditor()
             return START_NOT_STICKY
         }
 
@@ -139,6 +159,7 @@ class UsageWatcherService : Service() {
         removeSessionTimerWindow()
         removeInterventionPopup()
         removeVisualIntervention()
+        removeVisualPositionEditor()
         if (markNotRunning) {
             sessionStore.clear()
             stateStore.save(WatcherState(isRunning = false, lastTickTimeMillis = null))
@@ -391,6 +412,75 @@ class UsageWatcherService : Service() {
         return true
     }
 
+    private fun playVisualInterventionPreview(intent: Intent) {
+        val videoId = intent.getStringExtra(ExtraVisualVideoId) ?: return
+        val video = visualInterventionVideoById(videoId) ?: return
+        val settings = if (intent.getBooleanExtra(ExtraUseDraftVisualSettings, false)) {
+            visualVideoSettingsStore.loadDraft(videoId)
+        } else {
+            visualVideoSettingsStore.load(videoId)
+        }
+        showVisualInterventionVideo(
+            resourceId = video.resourceId,
+            settings = settings,
+            durationMillis = InterventionPopupDurationMillis
+        )
+    }
+
+    private fun showVisualInterventionVideo(
+        resourceId: Int,
+        settings: VisualInterventionVideoSettings,
+        durationMillis: Long
+    ): Boolean {
+        if (!hasOverlayPermission(this)) {
+            return false
+        }
+
+        removeVisualIntervention()
+
+        val size = visualInterventionVideoSizePx(settings.zoomPercent)
+        val container = createVisualInterventionVideoView(
+            resourceId = resourceId,
+            settings = settings,
+            sizePx = size
+        )
+        val params = createVisualInterventionVideoLayoutParams(size, settings)
+        visualInterventionView = container
+        visualInterventionLayoutParams = params
+        windowManager.addView(container, params)
+
+        hideVisualInterventionRunnable?.let(handler::removeCallbacks)
+        hideVisualInterventionRunnable = Runnable {
+            removeVisualIntervention()
+        }.also { runnable ->
+            handler.postDelayed(runnable, durationMillis)
+        }
+
+        return true
+    }
+
+    private fun showVisualPositionEditor(intent: Intent) {
+        val videoId = intent.getStringExtra(ExtraVisualVideoId) ?: return
+        if (!hasOverlayPermission(this)) {
+            return
+        }
+
+        removeVisualPositionEditor()
+
+        val settings = visualVideoSettingsStore.loadDraft(videoId)
+        val size = visualInterventionVideoSizePx(settings.zoomPercent)
+        val params = createVisualInterventionVideoLayoutParams(size, settings)
+        val view = createVisualPositionEditorView(videoId)
+        visualPositionEditorVideoId = videoId
+        visualPositionEditorView = view
+        visualPositionEditorLayoutParams = params
+        windowManager.addView(view, params)
+        visualVideoSettingsStore.saveDraft(
+            videoId,
+            settings.copy(positionX = params.x, positionY = params.y)
+        )
+    }
+
     private fun foregroundAppStateFromSession(
         session: PersistedSessionState?,
         snapshot: ForegroundUsageSnapshot
@@ -552,7 +642,10 @@ class UsageWatcherService : Service() {
         }
 
         val videoView = TextureView(this).apply {
-            surfaceTextureListener = VisualInterventionTextureListener(settings)
+            surfaceTextureListener = VisualInterventionTextureListener(
+                resourceId = R.raw.visual_intervention_happi_happi_happi,
+                isSoundEnabled = settings.isVisualInterventionSoundEnabled
+            )
         }
         container.addView(
             videoView,
@@ -589,6 +682,36 @@ class UsageWatcherService : Service() {
         }
 
         return container
+    }
+
+    private fun createVisualInterventionVideoView(
+        resourceId: Int,
+        settings: VisualInterventionVideoSettings,
+        sizePx: Int
+    ): FrameLayout {
+        return FrameLayout(this).apply {
+            val videoView = TextureView(this@UsageWatcherService).apply {
+                surfaceTextureListener = VisualInterventionTextureListener(
+                    resourceId = resourceId,
+                    isSoundEnabled = settings.isSoundEnabled
+                )
+            }
+            addView(
+                videoView,
+                FrameLayout.LayoutParams(sizePx, sizePx, Gravity.CENTER)
+            )
+        }
+    }
+
+    private fun createVisualPositionEditorView(videoId: String): FrameLayout {
+        return FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(Color.argb(35, 255, 255, 255))
+                setStroke(dpToPx(3).coerceAtLeast(1), Color.WHITE)
+            }
+            setOnTouchListener(VisualPositionEditorDragListener(videoId))
+        }
     }
 
     private fun createFloatingDebugLayoutParams(): WindowManager.LayoutParams {
@@ -663,6 +786,23 @@ class UsageWatcherService : Service() {
         }
     }
 
+    private fun createVisualInterventionVideoLayoutParams(
+        size: Int,
+        settings: VisualInterventionVideoSettings
+    ): WindowManager.LayoutParams {
+        return WindowManager.LayoutParams(
+            size,
+            size,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = settings.positionX ?: ((resources.displayMetrics.widthPixels - size) / 2).coerceAtLeast(0)
+            y = settings.positionY ?: ((resources.displayMetrics.heightPixels - size) / 2).coerceAtLeast(0)
+        }
+    }
+
     private fun floatingDebugText(state: WatcherState): String {
         return floatingDebugTextForState(state)
     }
@@ -707,6 +847,16 @@ class UsageWatcherService : Service() {
         visualInterventionView = null
         visualInterventionLayoutParams = null
         hideVisualInterventionRunnable = null
+    }
+
+    private fun removeVisualPositionEditor() {
+        val view = visualPositionEditorView ?: return
+        if (view.parent != null) {
+            windowManager.removeView(view)
+        }
+        visualPositionEditorView = null
+        visualPositionEditorLayoutParams = null
+        visualPositionEditorVideoId = null
     }
 
     private fun registerScreenEventReceiver() {
@@ -854,7 +1004,8 @@ class UsageWatcherService : Service() {
     }
 
     private inner class VisualInterventionTextureListener(
-        private val settings: InterventionSettings
+        private val resourceId: Int,
+        private val isSoundEnabled: Boolean
     ) : TextureView.SurfaceTextureListener {
         private var surface: Surface? = null
 
@@ -864,11 +1015,11 @@ class UsageWatcherService : Service() {
             val mediaPlayer = MediaPlayer().apply {
                 setDataSource(
                     this@UsageWatcherService,
-                    Uri.parse("android.resource://$packageName/${R.raw.visual_intervention_happi_happi_happi}")
+                    Uri.parse("android.resource://$packageName/$resourceId")
                 )
                 setSurface(playbackSurface)
                 isLooping = true
-                val volume = if (settings.isVisualInterventionSoundEnabled) 1f else 0f
+                val volume = if (isSoundEnabled) 1f else 0f
                 setVolume(volume, volume)
                 setOnPreparedListener { player -> player.start() }
                 prepareAsync()
@@ -894,6 +1045,45 @@ class UsageWatcherService : Service() {
         override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) = Unit
     }
 
+    private inner class VisualPositionEditorDragListener(
+        private val videoId: String
+    ) : View.OnTouchListener {
+        private var initialX = 0
+        private var initialY = 0
+        private var initialTouchX = 0f
+        private var initialTouchY = 0f
+
+        override fun onTouch(view: View, event: MotionEvent): Boolean {
+            val params = visualPositionEditorLayoutParams ?: return false
+
+            return when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialX = params.x
+                    initialY = params.y
+                    initialTouchX = event.rawX
+                    initialTouchY = event.rawY
+                    true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    params.x = initialX + (event.rawX - initialTouchX).toInt()
+                    params.y = initialY + (event.rawY - initialTouchY).toInt()
+                    windowManager.updateViewLayout(view, params)
+                    saveVisualDraftPosition(videoId, params)
+                    true
+                }
+
+                MotionEvent.ACTION_UP -> {
+                    saveVisualDraftPosition(videoId, params)
+                    view.performClick()
+                    true
+                }
+
+                else -> false
+            }
+        }
+    }
+
     private fun sessionTimerSizePx(): Int {
         return (72 * resources.displayMetrics.density).toInt()
     }
@@ -903,11 +1093,26 @@ class UsageWatcherService : Service() {
     }
 
     private fun visualInterventionVideoSizePx(settings: InterventionSettings): Int {
-        return (dpToPx(260) * settings.visualInterventionZoomPercent.coerceAtLeast(1)) / 100
+        return visualInterventionVideoSizePx(settings.visualInterventionZoomPercent)
+    }
+
+    private fun visualInterventionVideoSizePx(zoomPercent: Int): Int {
+        return (dpToPx(260) * zoomPercent.coerceAtLeast(1)) / 100
     }
 
     private fun dpToPx(dp: Int): Int {
         return (dp * resources.displayMetrics.density).toInt().coerceAtLeast(0)
+    }
+
+    private fun saveVisualDraftPosition(
+        videoId: String,
+        params: WindowManager.LayoutParams
+    ) {
+        val settings = visualVideoSettingsStore.loadDraft(videoId)
+        visualVideoSettingsStore.saveDraft(
+            videoId,
+            settings.copy(positionX = params.x, positionY = params.y)
+        )
     }
 
     private fun saveOverlayWindowPosition(
@@ -932,6 +1137,12 @@ class UsageWatcherService : Service() {
     companion object {
         private const val ActionStart = "com.vmdex.focusguard.action.START_USAGE_WATCHER"
         private const val ActionStop = "com.vmdex.focusguard.action.STOP_USAGE_WATCHER"
+        private const val ActionPlayVisualPreview = "com.vmdex.focusguard.action.PLAY_VISUAL_PREVIEW"
+        private const val ActionEditVisualPosition = "com.vmdex.focusguard.action.EDIT_VISUAL_POSITION"
+        private const val ActionHideVisualPositionEditor =
+            "com.vmdex.focusguard.action.HIDE_VISUAL_POSITION_EDITOR"
+        private const val ExtraVisualVideoId = "visual_video_id"
+        private const val ExtraUseDraftVisualSettings = "use_draft_visual_settings"
         private const val InterventionPopupDurationMillis = 5_000L
         private const val ServiceStartReasonDirectCall = "direct call"
 
@@ -947,6 +1158,31 @@ class UsageWatcherService : Service() {
 
         fun stop(context: Context) {
             val intent = Intent(context, UsageWatcherService::class.java).setAction(ActionStop)
+            context.startService(intent)
+        }
+
+        fun playVisualPreview(
+            context: Context,
+            videoId: String,
+            useDraftSettings: Boolean
+        ) {
+            val intent = Intent(context, UsageWatcherService::class.java)
+                .setAction(ActionPlayVisualPreview)
+                .putExtra(ExtraVisualVideoId, videoId)
+                .putExtra(ExtraUseDraftVisualSettings, useDraftSettings)
+            context.startService(intent)
+        }
+
+        fun editVisualPosition(context: Context, videoId: String) {
+            val intent = Intent(context, UsageWatcherService::class.java)
+                .setAction(ActionEditVisualPosition)
+                .putExtra(ExtraVisualVideoId, videoId)
+            context.startService(intent)
+        }
+
+        fun hideVisualPositionEditor(context: Context) {
+            val intent = Intent(context, UsageWatcherService::class.java)
+                .setAction(ActionHideVisualPositionEditor)
             context.startService(intent)
         }
     }
