@@ -26,6 +26,7 @@ class UsageWatcherService : Service() {
     private lateinit var stateStore: WatcherStateStore
     private lateinit var sessionStore: SessionStateStore
     private lateinit var settingsStore: FocusGuardSettingsStore
+    private lateinit var interventionSettingsStore: InterventionSettingsStore
     private lateinit var debugSettingsStore: DebugSettingsStore
     private lateinit var trackedAppsStore: TrackedAppsStore
     private lateinit var notifier: FocusGuardNotifier
@@ -35,6 +36,9 @@ class UsageWatcherService : Service() {
     private var floatingDebugLayoutParams: WindowManager.LayoutParams? = null
     private var sessionTimerView: TextView? = null
     private var sessionTimerLayoutParams: WindowManager.LayoutParams? = null
+    private var interventionPopupView: TextView? = null
+    private var interventionPopupLayoutParams: WindowManager.LayoutParams? = null
+    private var hideInterventionPopupRunnable: Runnable? = null
 
     private val tickRunnable = object : Runnable {
         override fun run() {
@@ -52,6 +56,7 @@ class UsageWatcherService : Service() {
         stateStore = WatcherStateStore(this)
         sessionStore = SessionStateStore(this)
         settingsStore = FocusGuardSettingsStore(this)
+        interventionSettingsStore = InterventionSettingsStore(this)
         debugSettingsStore = DebugSettingsStore(this)
         trackedAppsStore = TrackedAppsStore(this)
         notifier = FocusGuardNotifier(this)
@@ -92,8 +97,10 @@ class UsageWatcherService : Service() {
 
     private fun stopMonitoring(markNotRunning: Boolean) {
         handler.removeCallbacks(tickRunnable)
+        hideInterventionPopupRunnable?.let(handler::removeCallbacks)
         removeFloatingDebugWindow()
         removeSessionTimerWindow()
+        removeInterventionPopup()
         if (markNotRunning) {
             sessionStore.clear()
             stateStore.save(WatcherState(isRunning = false, lastTickTimeMillis = null))
@@ -173,12 +180,26 @@ class UsageWatcherService : Service() {
             return session
         }
 
-        val wasSent = notifier.showLimitExceeded(
-            limitAlertRequest.packageName,
-            limitAlertRequest.sessionElapsedMillis
-        )
+        val interventionSettings = interventionSettingsStore.load()
+        var wasDelivered = false
 
-        return if (wasSent) {
+        if (interventionSettings.isNotificationEnabled) {
+            wasDelivered = notifier.showLimitExceeded(
+                limitAlertRequest.packageName,
+                limitAlertRequest.sessionElapsedMillis,
+                interventionSettings
+            )
+        }
+
+        if (interventionSettings.isPopupEnabled) {
+            wasDelivered = showInterventionPopup(
+                message = interventionSettings.popupMessage
+                    .replace("{app}", limitAlertRequest.packageName)
+                    .replace("{time}", formatElapsed(limitAlertRequest.sessionElapsedMillis))
+            ) || wasDelivered
+        }
+
+        return if (wasDelivered) {
             val alertState = AlertState(
                 wasSent = true,
                 lastAlertTimeMillis = currentTimeMillis,
@@ -190,6 +211,30 @@ class UsageWatcherService : Service() {
         } else {
             session
         }
+    }
+
+    private fun showInterventionPopup(message: String): Boolean {
+        if (!hasOverlayPermission(this)) {
+            return false
+        }
+
+        val view = interventionPopupView ?: createInterventionPopupView().also { interventionPopupView = it }
+        view.text = message.ifBlank { DefaultInterventionPopupMessage }
+
+        if (view.parent == null) {
+            val params = interventionPopupLayoutParams ?: createInterventionPopupLayoutParams()
+                .also { interventionPopupLayoutParams = it }
+            windowManager.addView(view, params)
+        }
+
+        hideInterventionPopupRunnable?.let(handler::removeCallbacks)
+        hideInterventionPopupRunnable = Runnable {
+            removeInterventionPopup()
+        }.also { runnable ->
+            handler.postDelayed(runnable, InterventionPopupDurationMillis)
+        }
+
+        return true
     }
 
     private fun foregroundAppStateFromSession(
@@ -303,6 +348,20 @@ class UsageWatcherService : Service() {
         }
     }
 
+    private fun createInterventionPopupView(): TextView {
+        return TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 16f
+            setPadding(28, 18, 28, 18)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 28f
+                setColor(Color.argb(235, 20, 24, 28))
+                setStroke(2, Color.argb(245, 250, 204, 21))
+            }
+        }
+    }
+
     private fun createFloatingDebugLayoutParams(): WindowManager.LayoutParams {
         return WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -332,6 +391,19 @@ class UsageWatcherService : Service() {
         }
     }
 
+    private fun createInterventionPopupLayoutParams(): WindowManager.LayoutParams {
+        return WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            y = 220
+        }
+    }
+
     private fun floatingDebugText(state: WatcherState): String {
         return floatingDebugTextForState(state)
     }
@@ -352,6 +424,16 @@ class UsageWatcherService : Service() {
         }
         sessionTimerView = null
         sessionTimerLayoutParams = null
+    }
+
+    private fun removeInterventionPopup() {
+        val view = interventionPopupView ?: return
+        if (view.parent != null) {
+            windowManager.removeView(view)
+        }
+        interventionPopupView = null
+        interventionPopupLayoutParams = null
+        hideInterventionPopupRunnable = null
     }
 
     private fun buildMonitoringNotification(state: WatcherState): Notification {
@@ -478,6 +560,7 @@ class UsageWatcherService : Service() {
     companion object {
         private const val ActionStart = "com.vmdex.focusguard.action.START_USAGE_WATCHER"
         private const val ActionStop = "com.vmdex.focusguard.action.STOP_USAGE_WATCHER"
+        private const val InterventionPopupDurationMillis = 5_000L
 
         fun start(context: Context) {
             val intent = Intent(context, UsageWatcherService::class.java).setAction(ActionStart)

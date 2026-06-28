@@ -51,6 +51,7 @@ fun FocusGuardApp(
     currentTimeMillis: Long,
     alertState: AlertState,
     settings: FocusGuardSettings,
+    interventionSettings: InterventionSettings,
     debugSettings: DebugSettings,
     effectiveSettings: FocusGuardSettings,
     hasPendingSettings: Boolean,
@@ -64,6 +65,7 @@ fun FocusGuardApp(
     onStartMonitoring: () -> Unit,
     onStopMonitoring: () -> Unit,
     onTrackedAppsChanged: (Set<String>) -> Unit,
+    onInterventionSettingsChanged: (InterventionSettings) -> Unit,
     onDebugSettingsChanged: (DebugSettings) -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit
 ) {
@@ -78,6 +80,7 @@ fun FocusGuardApp(
                 currentTimeMillis = currentTimeMillis,
                 alertState = alertState,
                 settings = settings,
+                interventionSettings = interventionSettings,
                 debugSettings = debugSettings,
                 effectiveSettings = effectiveSettings,
                 hasPendingSettings = hasPendingSettings,
@@ -90,6 +93,7 @@ fun FocusGuardApp(
                 onStartMonitoring = onStartMonitoring,
                 onStopMonitoring = onStopMonitoring,
                 onChooseApps = { screen = FocusGuardScreen.ChooseApps },
+                onConfigureInterventions = { screen = FocusGuardScreen.ConfigureInterventions },
                 onDebugSettingsChanged = onDebugSettingsChanged,
                 onSettingsChanged = onSettingsChanged,
                 modifier = Modifier.padding(innerPadding)
@@ -105,13 +109,24 @@ fun FocusGuardApp(
                 onBack = { screen = FocusGuardScreen.Main },
                 modifier = Modifier.padding(innerPadding)
             )
+
+            FocusGuardScreen.ConfigureInterventions -> ConfigureInterventionsScreen(
+                interventionSettings = interventionSettings,
+                onApply = { settings ->
+                    onInterventionSettingsChanged(settings)
+                    screen = FocusGuardScreen.Main
+                },
+                onBack = { screen = FocusGuardScreen.Main },
+                modifier = Modifier.padding(innerPadding)
+            )
         }
     }
 }
 
 private enum class FocusGuardScreen {
     Main,
-    ChooseApps
+    ChooseApps,
+    ConfigureInterventions
 }
 
 @Composable
@@ -122,6 +137,7 @@ private fun UsageAccessScreen(
     currentTimeMillis: Long,
     alertState: AlertState,
     settings: FocusGuardSettings,
+    interventionSettings: InterventionSettings,
     debugSettings: DebugSettings,
     effectiveSettings: FocusGuardSettings,
     hasPendingSettings: Boolean,
@@ -134,6 +150,7 @@ private fun UsageAccessScreen(
     onStartMonitoring: () -> Unit,
     onStopMonitoring: () -> Unit,
     onChooseApps: () -> Unit,
+    onConfigureInterventions: () -> Unit,
     onDebugSettingsChanged: (DebugSettings) -> Unit,
     onSettingsChanged: (FocusGuardSettings) -> Unit,
     modifier: Modifier = Modifier
@@ -175,6 +192,11 @@ private fun UsageAccessScreen(
             FocusSettingsCard(
                 settings = settings,
                 onSettingsChanged = onSettingsChanged
+            )
+
+            InterventionSettingsCard(
+                interventionSettings = interventionSettings,
+                onConfigureInterventions = onConfigureInterventions
             )
 
             TrackedAppsCard(
@@ -328,6 +350,131 @@ private fun ChooseAppRow(
             text = app.appName,
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun ConfigureInterventionsScreen(
+    interventionSettings: InterventionSettings,
+    onApply: (InterventionSettings) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BackHandler(onBack = onBack)
+
+    var draftSettings by remember(interventionSettings) {
+        mutableStateOf(interventionSettings)
+    }
+    val hasChanges = draftSettings != interventionSettings
+    val scrollState = rememberScrollState()
+
+    Surface(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Intervention settings",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Button(onClick = { onApply(draftSettings) }) {
+                    Text(text = if (hasChanges) "✓ Save changes" else "✓")
+                }
+            }
+
+            InterventionSwitchRow(
+                label = "Android notification",
+                checked = draftSettings.isNotificationEnabled,
+                onCheckedChange = { isEnabled ->
+                    draftSettings = draftSettings.copy(isNotificationEnabled = isEnabled)
+                }
+            )
+
+            OutlinedTextField(
+                value = draftSettings.notificationTitle,
+                onValueChange = { text ->
+                    draftSettings = draftSettings.copy(notificationTitle = text)
+                },
+                label = { Text(text = "Notification title") },
+                enabled = draftSettings.isNotificationEnabled,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = draftSettings.notificationMessage,
+                onValueChange = { text ->
+                    draftSettings = draftSettings.copy(notificationMessage = text)
+                },
+                label = { Text(text = "Notification message") },
+                enabled = draftSettings.isNotificationEnabled,
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2
+            )
+
+            InterventionSwitchRow(
+                label = "Floating popup",
+                checked = draftSettings.isPopupEnabled,
+                onCheckedChange = { isEnabled ->
+                    draftSettings = draftSettings.copy(isPopupEnabled = isEnabled)
+                }
+            )
+
+            OutlinedTextField(
+                value = draftSettings.popupMessage,
+                onValueChange = { text ->
+                    draftSettings = draftSettings.copy(popupMessage = text)
+                },
+                label = { Text(text = "Popup message") },
+                enabled = draftSettings.isPopupEnabled,
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2
+            )
+
+            Button(
+                onClick = { draftSettings = InterventionSettings() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "Restore defaults")
+            }
+
+            if (!draftSettings.isNotificationEnabled && !draftSettings.isPopupEnabled) {
+                Text(
+                    text = "No intervention channel enabled.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InterventionSwitchRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = label, style = MaterialTheme.typography.bodyLarge)
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
         )
     }
 }
@@ -563,6 +710,56 @@ private fun TrackedAppsCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(text = "Choose apps")
+            }
+        }
+    }
+}
+
+@Composable
+private fun InterventionSettingsCard(
+    interventionSettings: InterventionSettings,
+    onConfigureInterventions: () -> Unit
+) {
+    val enabledChannels = buildList {
+        if (interventionSettings.isNotificationEnabled) {
+            add("Android notification")
+        }
+        if (interventionSettings.isPopupEnabled) {
+            add("Floating popup")
+        }
+    }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "Intervention settings",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            if (enabledChannels.isEmpty()) {
+                Text(
+                    text = "No intervention channel enabled.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.SemiBold
+                )
+            } else {
+                Text(
+                    text = enabledChannels.joinToString(separator = "\n"),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Button(
+                onClick = onConfigureInterventions,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "Configure")
             }
         }
     }
@@ -993,6 +1190,7 @@ private fun UsageAccessScreenPreview() {
             currentTimeMillis = System.currentTimeMillis(),
             alertState = AlertState(),
             settings = FocusGuardSettings(),
+            interventionSettings = InterventionSettings(),
             debugSettings = DebugSettings(),
             effectiveSettings = FocusGuardSettings(),
             hasPendingSettings = false,
@@ -1005,6 +1203,7 @@ private fun UsageAccessScreenPreview() {
             onStartMonitoring = {},
             onStopMonitoring = {},
             onChooseApps = {},
+            onConfigureInterventions = {},
             onDebugSettingsChanged = {},
             onSettingsChanged = {}
         )

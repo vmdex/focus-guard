@@ -23,7 +23,11 @@ class FocusGuardNotifier(private val context: Context) {
         notificationManager.createNotificationChannel(channel)
     }
 
-    fun showLimitExceeded(packageName: String, elapsedMillis: Long): Boolean {
+    fun showLimitExceeded(
+        packageName: String,
+        elapsedMillis: Long,
+        settings: InterventionSettings
+    ): Boolean {
         // Return a boolean so MainActivity can show accurate dev state without knowing notification details.
         if (!hasNotificationPermission()) {
             return false
@@ -31,8 +35,12 @@ class FocusGuardNotifier(private val context: Context) {
 
         val notification = NotificationCompat.Builder(context, LimitNotificationChannelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Focus Guard")
-            .setContentText("$packageName has been open for ${formatElapsed(elapsedMillis)}")
+            .setContentTitle(settings.notificationTitle)
+            .setContentText(
+                settings.notificationMessage
+                    .replace("{app}", packageName)
+                    .replace("{time}", formatElapsed(elapsedMillis))
+            )
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .build()
