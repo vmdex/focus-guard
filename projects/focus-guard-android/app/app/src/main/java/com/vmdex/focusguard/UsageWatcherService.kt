@@ -13,7 +13,9 @@ import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.SurfaceTexture
 import android.graphics.drawable.GradientDrawable
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -22,11 +24,12 @@ import android.os.Looper
 import android.os.PowerManager
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.Surface
+import android.view.TextureView
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
-import android.widget.VideoView
 import androidx.core.app.NotificationCompat
 
 class UsageWatcherService : Service() {
@@ -53,6 +56,7 @@ class UsageWatcherService : Service() {
     private var visualInterventionView: View? = null
     private var visualInterventionLayoutParams: WindowManager.LayoutParams? = null
     private var hideVisualInterventionRunnable: Runnable? = null
+    private var visualInterventionMediaPlayer: MediaPlayer? = null
     private var isScreenEventReceiverRegistered = false
     private var serviceRestoreState = ServiceRestoreState()
 
@@ -371,8 +375,8 @@ class UsageWatcherService : Service() {
 
         removeVisualIntervention()
 
-        val container = createVisualInterventionView(settings)
         val params = createVisualInterventionLayoutParams(settings)
+        val container = createVisualInterventionView(settings, params)
         visualInterventionView = container
         visualInterventionLayoutParams = params
         windowManager.addView(container, params)
@@ -524,7 +528,10 @@ class UsageWatcherService : Service() {
         }
     }
 
-    private fun createVisualInterventionView(settings: InterventionSettings): FrameLayout {
+    private fun createVisualInterventionView(
+        settings: InterventionSettings,
+        params: WindowManager.LayoutParams
+    ): FrameLayout {
         val frameThicknessPx = if (settings.isVisualInterventionFrameEnabled) {
             dpToPx(settings.visualInterventionFrameThicknessDp)
         } else {
@@ -544,16 +551,8 @@ class UsageWatcherService : Service() {
             clipToPadding = false
         }
 
-        val videoView = VideoView(this).apply {
-            setVideoURI(
-                Uri.parse("android.resource://$packageName/${R.raw.visual_intervention_happi_happi_happi}")
-            )
-            setOnPreparedListener { mediaPlayer ->
-                mediaPlayer.isLooping = true
-                val volume = if (settings.isVisualInterventionSoundEnabled) 1f else 0f
-                mediaPlayer.setVolume(volume, volume)
-                start()
-            }
+        val videoView = TextureView(this).apply {
+            surfaceTextureListener = VisualInterventionTextureListener(settings)
         }
         container.addView(
             videoView,
@@ -569,7 +568,9 @@ class UsageWatcherService : Service() {
                     shape = GradientDrawable.RECTANGLE
                     setColor(Color.argb(200, 0, 0, 0))
                 }
-                text = "w:${containerSizePx}px h:${containerSizePx}px angle:${settings.visualInterventionRotationDegrees}"
+                val pivotScreenX = params.x
+                val pivotScreenY = params.y + containerSizePx
+                text = "w:${containerSizePx}px h:${containerSizePx}px angle:${settings.visualInterventionRotationDegrees} pivot:0,$containerSizePx screen:$pivotScreenX,$pivotScreenY"
             }
             container.addView(
                 debugText,
@@ -656,7 +657,9 @@ class UsageWatcherService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.CENTER
+            gravity = Gravity.TOP or Gravity.START
+            x = ((resources.displayMetrics.widthPixels - size) / 2).coerceAtLeast(0)
+            y = ((resources.displayMetrics.heightPixels - size) / 2).coerceAtLeast(0)
         }
     }
 
@@ -699,6 +702,8 @@ class UsageWatcherService : Service() {
         if (view.parent != null) {
             windowManager.removeView(view)
         }
+        visualInterventionMediaPlayer?.release()
+        visualInterventionMediaPlayer = null
         visualInterventionView = null
         visualInterventionLayoutParams = null
         hideVisualInterventionRunnable = null
@@ -846,6 +851,47 @@ class UsageWatcherService : Service() {
                 else -> false
             }
         }
+    }
+
+    private inner class VisualInterventionTextureListener(
+        private val settings: InterventionSettings
+    ) : TextureView.SurfaceTextureListener {
+        private var surface: Surface? = null
+
+        override fun onSurfaceTextureAvailable(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
+            val playbackSurface = Surface(surfaceTexture)
+            surface = playbackSurface
+            val mediaPlayer = MediaPlayer().apply {
+                setDataSource(
+                    this@UsageWatcherService,
+                    Uri.parse("android.resource://$packageName/${R.raw.visual_intervention_happi_happi_happi}")
+                )
+                setSurface(playbackSurface)
+                isLooping = true
+                val volume = if (settings.isVisualInterventionSoundEnabled) 1f else 0f
+                setVolume(volume, volume)
+                setOnPreparedListener { player -> player.start() }
+                prepareAsync()
+            }
+            visualInterventionMediaPlayer?.release()
+            visualInterventionMediaPlayer = mediaPlayer
+        }
+
+        override fun onSurfaceTextureSizeChanged(
+            surfaceTexture: SurfaceTexture,
+            width: Int,
+            height: Int
+        ) = Unit
+
+        override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture): Boolean {
+            visualInterventionMediaPlayer?.release()
+            visualInterventionMediaPlayer = null
+            surface?.release()
+            surface = null
+            return true
+        }
+
+        override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) = Unit
     }
 
     private fun sessionTimerSizePx(): Int {
