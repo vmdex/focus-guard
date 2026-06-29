@@ -1,6 +1,6 @@
 # Focus Guard Android Current State
 
-Last updated: 2026-06-28
+Last updated: 2026-06-29
 
 This document is the recovery point for future Codex chats after context compaction.
 It should be updated only when the user asks to capture the current state.
@@ -51,6 +51,9 @@ DebugSettingsStore.kt
 InterventionSettings.kt
 InterventionSettingsStore.kt
 OverlayWindowPositionStore.kt
+VisualInterventionPlaylist.kt
+VisualInterventionVideoSettingsStore.kt
+ChromaKeyVideoView.kt
 ```
 
 ## Current architecture
@@ -69,13 +72,14 @@ Monitoring is owned by `UsageWatcherService`, not by `MainActivity`.
 `UsageWatcherService`:
 
 - runs as a foreground service while monitoring is enabled;
-- ticks every second;
+- uses adaptive tick timing from dev settings;
 - reads foreground-app information through `UsageStatsManager`;
 - saves a `WatcherState` snapshot;
 - updates the foreground service notification;
 - updates the floating debug overlay;
 - updates the session timer overlay;
 - sends configured limit-exceeded interventions.
+- can also show visual-intervention preview overlays from the playlist/config UI.
 
 `SessionStateStore` stores the logical session memory.
 
@@ -246,8 +250,27 @@ Current intervention channels:
 
 - Android heads-up notification;
 - Custom overlay popup.
+- Visual intervention video overlay.
 
 The UI exposes an `Intervention settings` card under `Focus settings`. It shows enabled channels or `No intervention channel enabled.` and opens a configure screen with an Apply/check action. If there are unsaved changes, the top action shows `Apply`.
+
+The default actual intervention video is still:
+
+```text
+res/raw/visual_intervention_happi_happi_happi.mp4
+```
+
+The visual intervention channel has settings for:
+
+- enabled/disabled;
+- sound;
+- white frame;
+- frame thickness;
+- rotation degrees;
+- zoom percent;
+- debug size/angle.
+
+The default visual intervention flow is separate from the visual playlist/debug flow described below.
 
 ## Debug overlay
 
@@ -338,7 +361,7 @@ hh:mm:ss after one hour
 The setting is currently:
 
 ```text
-Debug settings -> Show session timer
+Focus settings -> Show session timer
 ```
 
 ## Current UI
@@ -361,6 +384,7 @@ Main visible cards:
 - Usage Access;
 - Focus settings;
 - Intervention settings;
+- Visual intervention playlist;
 - Tracked apps;
 - Monitoring;
 - Dev settings;
@@ -368,6 +392,7 @@ Main visible cards:
 
 Focus settings currently include:
 
+- show session timer;
 - grace period seconds;
 - session limit seconds;
 - alert delay after resume seconds.
@@ -386,7 +411,102 @@ Tracked apps card:
 Dev settings currently include:
 
 - Floating debug window / Float window;
-- Show session timer.
+- Active tick seconds;
+- Grace tick seconds;
+- Idle tick seconds;
+- Locked tick seconds.
+
+Adaptive tick defaults:
+
+```text
+Active tracked session: 1s
+Grace period: 3s
+Idle/untracked/permission missing: 5s
+Screen locked: 30s
+```
+
+These ticks are active only while monitoring is on.
+
+## Visual intervention playlist
+
+The app now has a separate developer/config flow for visual intervention videos.
+
+This is intentionally separate from actual alert delivery so videos can be tuned and debugged before being used as real interventions.
+
+Source playlist files are kept at:
+
+```text
+assets/video/visual-intervention/Cat-Green-Screens-playlist/
+```
+
+Android raw resource copies are stored as:
+
+```text
+app/src/main/res/raw/vi_cat_01.mp4
+...
+app/src/main/res/raw/vi_cat_25.mp4
+```
+
+The playlist registry is static in:
+
+```text
+VisualInterventionPlaylist.kt
+```
+
+The main screen card is:
+
+```text
+Visual intervention playlist
+```
+
+It opens a playlist screen with:
+
+- a first card named `Bulk setup`;
+- each video row showing title, play button, and settings button.
+
+`Bulk setup` has:
+
+- Green screen toggle;
+- Sound toggle;
+- Dominance min;
+- Dominance max;
+- Brightness min.
+
+Applying bulk setup updates those values for every playlist video. It does not change per-video zoom or position.
+
+The playlist card also has a `JSON` button that copies current bulk settings plus all per-video settings to Android clipboard. No special clipboard permission is required.
+
+Each video settings screen has:
+
+- Green screen toggle;
+- Sound toggle;
+- Zoom percent;
+- Green dominance min percent;
+- Green dominance max percent;
+- Green brightness min percent;
+- Change position.
+
+The settings screen uses a draft model:
+
+- Play inside the settings screen uses draft values, even before Apply;
+- Change position writes the dragged frame position into draft settings;
+- Back discards draft settings;
+- Apply saves draft settings;
+- Play from the playlist uses saved settings only.
+
+Preview overlays are shown by `UsageWatcherService` using `TextureView` or `ChromaKeyVideoView`.
+
+`ChromaKeyVideoView` is an OpenGL ES renderer that removes green screen using shader thresholds:
+
+```text
+greenDominanceMinPercent
+greenDominanceMaxPercent
+greenBrightnessMinPercent
+```
+
+The chroma-key renderer currently supports transparent green removal for playlist previews. Thresholds are per-video and can be exported through JSON for debugging.
+
+The preview/position overlay now preserves real video aspect ratio by reading video width/height from `MediaMetadataRetriever`. Earlier square-box behavior was fixed.
 
 Dev info is grouped into sections:
 
@@ -461,6 +581,7 @@ Current direction:
 - normal monitoring should use delta-based `UsageEvents` reads after the last processed timestamp;
 - the larger lookup window should be only a fallback for cold start, missing state, or recovery;
 - tick frequency does not have to stay at 1 second forever;
+- tick frequency is now configurable from Dev settings for active/grace/idle/locked states;
 - untracked foreground apps can probably be polled less frequently later;
 - tracked active apps close to their limit can be polled more frequently;
 - the floating overlay is currently a debug tool and can update every second during development;
@@ -481,6 +602,8 @@ Other planned work:
 - battery optimization strategy;
 - better foreground detection edge-case testing;
 - polished setup flow;
+- decide how playlist-tuned visual videos become actual intervention selections;
+- improve chroma-key tuning UX if manual numeric fields become too slow;
 - tracked apps configurable polish can continue later as part of UI work.
 
 ## Testing notes
@@ -557,11 +680,33 @@ Latest verified commands:
 .\gradlew.bat installDebug
 ```
 
+Most recent verification on 2026-06-29:
+
+```text
+.\gradlew.bat assembleDebug
+```
+
+passed after:
+
+- visual playlist;
+- aspect-ratio preview sizing;
+- chroma-key renderer;
+- adjustable chroma-key thresholds;
+- bulk setup;
+- JSON export.
+
 ## Git status note
 
 Recent Android commits include:
 
 ```text
+f1c5403 Add visual playlist settings JSON export
+fc6db03 Add chroma key renderer for visual previews
+e5a3b3e Add Cat-Green-Screens-playlis into app\src\main\res\raw
+d2d326d Add assets\video\visual-intervention\Cat-Green-Screens-playlis
+1f3577e Respect video aspect ratio in visual playlist preview
+eac9e59 Fix visual intervention rotation with TextureView
+468b395 Add visual intervention video overlay
 17fdfdf Pause sessions while screen is locked
 59aecf1 Add Focus Guard launcher icon
 04df9ad Persist overlay window positions

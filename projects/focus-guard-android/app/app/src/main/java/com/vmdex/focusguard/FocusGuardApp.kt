@@ -25,6 +25,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -824,7 +825,7 @@ private fun VisualInterventionVideoSettingsScreen(
                 }
             )
 
-            IntegerField(
+            PercentFieldWithSlider(
                 label = "Green dominance min %",
                 value = draftSettings.greenDominanceMinPercent,
                 onValueChanged = { value ->
@@ -835,7 +836,7 @@ private fun VisualInterventionVideoSettingsScreen(
                 enabled = draftSettings.isGreenScreenEnabled
             )
 
-            IntegerField(
+            PercentFieldWithSlider(
                 label = "Green dominance max %",
                 value = draftSettings.greenDominanceMaxPercent,
                 onValueChanged = { value ->
@@ -846,7 +847,7 @@ private fun VisualInterventionVideoSettingsScreen(
                 enabled = draftSettings.isGreenScreenEnabled
             )
 
-            IntegerField(
+            PercentFieldWithSlider(
                 label = "Green brightness min %",
                 value = draftSettings.greenBrightnessMinPercent,
                 onValueChanged = { value ->
@@ -999,7 +1000,7 @@ private fun VisualInterventionBulkSettingsScreen(
                 }
             )
 
-            IntegerField(
+            PercentFieldWithSlider(
                 label = "Dominance min",
                 value = draftSettings.greenDominanceMinPercent,
                 onValueChanged = { value ->
@@ -1008,7 +1009,7 @@ private fun VisualInterventionBulkSettingsScreen(
                 enabled = draftSettings.isGreenScreenEnabled
             )
 
-            IntegerField(
+            PercentFieldWithSlider(
                 label = "Dominance max",
                 value = draftSettings.greenDominanceMaxPercent,
                 onValueChanged = { value ->
@@ -1017,7 +1018,7 @@ private fun VisualInterventionBulkSettingsScreen(
                 enabled = draftSettings.isGreenScreenEnabled
             )
 
-            IntegerField(
+            PercentFieldWithSlider(
                 label = "Brightness min",
                 value = draftSettings.greenBrightnessMinPercent,
                 onValueChanged = { value ->
@@ -1032,6 +1033,34 @@ private fun VisualInterventionBulkSettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@Composable
+private fun PercentFieldWithSlider(
+    label: String,
+    value: Int,
+    onValueChanged: (Int) -> Unit,
+    enabled: Boolean = true
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        IntegerField(
+            label = label,
+            value = value,
+            onValueChanged = { nextValue -> onValueChanged(nextValue.coerceIn(0, 100)) },
+            enabled = enabled
+        )
+
+        Slider(
+            value = value.coerceIn(0, 100).toFloat(),
+            onValueChange = { sliderValue ->
+                onValueChanged(sliderValue.toInt().coerceIn(0, 100))
+            },
+            valueRange = 0f..100f,
+            steps = 99,
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
