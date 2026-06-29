@@ -508,6 +508,17 @@ The chroma-key renderer currently supports transparent green removal for playlis
 
 The preview/position overlay now preserves real video aspect ratio by reading video width/height from `MediaMetadataRetriever`. Earlier square-box behavior was fixed.
 
+Open playback-flow issues to solve:
+
+- stop preview video when leaving a specific video settings screen or the playlist screen;
+- make Play restart preview: if preview is already playing, stop the old one and start a fresh preview with current draft/saved settings;
+- add tap-to-pause on the preview video;
+- show a large center pause/play indicator when preview is paused;
+- resume playback when the paused preview indicator is tapped;
+- add an X close button in the preview overlay corner that stops playback and closes the overlay;
+- make preview behavior closer to YouTube Shorts/Reels: tap pauses, center indicator is visible while paused, X closes preview, repeated Play starts over;
+- audit cleanup for `MediaPlayer`, `Surface`, `SurfaceTexture`, `GLSurfaceView`, and `TextureView` so preview playback cannot keep looping after leaving the UI.
+
 Dev info is grouped into sections:
 
 - App;
